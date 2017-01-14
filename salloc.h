@@ -3,8 +3,8 @@
 
 #include <stdlib.h>
 
-void            handle_exit();
+void handle_exit();
 
-void           *salloc(size_t size, void (*error_handle)());
+void *salloc(size_t size, void (*error_handle)());
 
 #endif

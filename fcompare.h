@@ -7,6 +7,6 @@
 
 extern size_t total_bytes_read;
 
-int             compare_files(char *name[], int count, int max_buffer);
+int compare_files(char *name[], int count, int max_buffer);
 
 #endif
