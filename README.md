@@ -49,7 +49,7 @@ Total equality clusters: 2
 - There are some memory limits (so not suitable for tiny systems).
 
 ### Comparsion
-TBD
+* TBD
 
 ### Licensing
 see [LICENSE](LICENSE) file
