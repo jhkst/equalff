@@ -6,6 +6,7 @@
 void
 handle_exit() {
     fprintf(stderr, "\nOut of memory\n");
+    exit(10);
 }
 
 void *
