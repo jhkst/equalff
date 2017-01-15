@@ -2,14 +2,8 @@
 
 #include "cmpdata.h"
 #include "fcompare.h"
-#include "fmanage.h"
-#include "salloc.h"
 #include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 int
 ufsorter(const void *p1, const void *p2, void *arg) {
@@ -41,9 +35,9 @@ compare_files(char *name[], int count, int max_buffer) {
 
     cmp_init(cmp_data, count, max_buffer);
 
-    int readed;
+    size_t readed;
     int group_start;
-    int group_size;
+    size_t group_size;
     int idx = 0;
 
     int *order_cpy = (int *) salloc(sizeof(int) * count, handle_exit);
@@ -105,8 +99,6 @@ compare_files(char *name[], int count, int max_buffer) {
             fm_fclose(fm, cmp_data->file[i]);
         }
     }
-
-//    total_bytes_read += fm->total_readed;
 
     fm_free(fm);
     free(fm);

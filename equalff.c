@@ -2,14 +2,10 @@
 
 #include "fcompare.h"
 #include "salloc.h"
-#include <errno.h>
 #include <fcntl.h>
 #include <ftw.h>
 #include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #ifndef USE_FDS
 #define USE_FDS 15
@@ -26,7 +22,7 @@ typedef struct _item {
 } item;
 
 item *current_file;
-int total_files = 0;
+size_t total_files = 0;
 
 item *
 add_item(item *where, file_item *fi) {
@@ -114,7 +110,7 @@ process_same_size(file_item *files[], int count, int max_buffer) {
 
 void
 print_usage_exit(char *execname) {
-    fprintf(stderr, "Usage: equalff [OPTIONS] <FOLDER> [FOLDER]...\n");
+    fprintf(stderr, "Usage: %s [OPTIONS] <FOLDER> [FOLDER]...\n", execname);
     fprintf(stderr,
             "Find duplicate files in FOLDERs according to their content.\n\n");
     fprintf(stderr,
@@ -178,9 +174,8 @@ process_files(file_item **fis, int min_file_size, int max_buffer) {
         }
     }
 
-    fprintf(stderr, "Total files being processed: %d\n", total_files);
+    fprintf(stderr, "Total files being processed: %zu\n", total_files);
     fprintf(stderr, "Total files being read: %d\n", stat_total_files_read);
-//    fprintf(stderr, "Total bytes being read: %ld\n", total_bytes_read);
     fprintf(stderr, "Total equality clusters: %d\n", stat_cluster_count);
 }
 
@@ -212,7 +207,7 @@ process_folders(int folders_cnt,
         }
     }
     if (total_files > 0) {
-        fprintf(stderr, "%d files found\nSorting ... ", total_files);
+        fprintf(stderr, "%zu files found\nSorting ... ", total_files);
 
         file_item **fis = create_array(file_list_head);
         free_list(file_list_head);
@@ -286,14 +281,5 @@ main(int argc, char *argv[]) {
 
     free(folders);
 
-    return 0;
-}
-
-int
-main2(int argc, char *argv[]) {
-    char *av[2];
-    av[0] = argv[0];
-    av[1] = "/home/honza";
-    main2(2, av);
     return 0;
 }

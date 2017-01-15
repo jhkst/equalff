@@ -1,8 +1,6 @@
 #include "fmanage.h"
 #include "salloc.h"
-#include "salloc.h"
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
 
 #define CLOSE_FILES_COUNT 1
@@ -115,7 +113,7 @@ fm_fopen(fmanage *fm, char *filename) {
     return ff;
 }
 
-int
+size_t
 fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb, fm_FILE *ff) {
     if (ff != NULL) {
         if (ff->_errno != 0) {
@@ -131,7 +129,7 @@ fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb, fm_FILE *ff) {
             }
         }
 
-        int cnt = fread(ptr, size, nmemb, ff->fd);
+        size_t cnt = fread(ptr, size, nmemb, ff->fd);
         fm->total_readed += cnt;
 
         ff->pos += cnt;

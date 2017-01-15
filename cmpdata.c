@@ -1,11 +1,9 @@
 #include "cmpdata.h"
-#include "fmanage.h"
-#include <stdio.h>
 
 #define MIN_BUFFER_PER_FILE 128
 
 void
-cmp_init(cmpdata *cd, int size, int max_buffer) {
+cmp_init(cmpdata *cd, int size, size_t max_buffer) {
     cd->size = size;
     cd->order = (int *) salloc(sizeof(int) * size, handle_exit);
     cd->uf_parent = (int *) salloc(sizeof(int) * size, handle_exit);
@@ -69,8 +67,8 @@ cmp_uf_root(cmpdata *cd, int idx) {
 }
 
 void
-cmp_uf_reset_ordered(cmpdata *cd, int sidx, int size) {
-    int last = sidx + size;
+cmp_uf_reset_ordered(cmpdata *cd, int sidx, size_t size) {
+    size_t last = sidx + size;
     for (int i = sidx; i < last; i++) {
         cd->uf_parent[cd->order[i]] = -1;
     }

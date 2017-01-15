@@ -26,7 +26,7 @@ void fm_init(fmanage *fm, int limit);
 
 fm_FILE *fm_fopen(fmanage *fm, char *filename);
 
-int fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb,
+size_t fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb,
              fm_FILE *stream);
 
 void fm_fclose(fmanage *fm, fm_FILE *ff);
