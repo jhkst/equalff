@@ -65,7 +65,7 @@ free_list(item *head) {
 }
 
 void
-free_file_items(int count, file_item **file_items) {
+free_file_items(size_t count, file_item **file_items) {
     for (int i = 0; i < count; i++) {
         free(file_items[i]->filepath);
         free(file_items[i]);
