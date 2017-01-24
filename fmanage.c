@@ -53,7 +53,7 @@ fm_reopen(fmanage *fm, fm_FILE *ff) {
         fm_temp_close_count(fm, fm->limit - fm->count + 1);
     }
 
-    while (fd == NULL && fm->count > 0) {
+    do {
         fd = fopen(ff->filename, "r");
         ff->_errno = errno;
         if (fd == NULL && errno == EMFILE) {
@@ -61,9 +61,9 @@ fm_reopen(fmanage *fm, fm_FILE *ff) {
         } else if (fd == NULL) {
             return; // check the error outside
         }
-    }
+    } while(fd == NULL && fm->count > 0);
 
-    if (fm->count <= 0 || fd == NULL) {
+    if (fd == NULL) {
         fprintf(stderr, "Failed to allocate file open: %s\n", ff->filename);
         exit(1);
     }
