@@ -3,8 +3,6 @@
 
 #include <stdio.h>
 
-#define MAX_OPEN_FILES FOPEN_MAX
-
-int compare_files(char *name[], int count, int max_buffer);
+int compare_files(char *name[], int count, int max_buffer, int max_open_files);
 
 #endif

@@ -23,13 +23,13 @@ ufsorter(const void *p1, const void *p2, void *arg) {
 }
 
 int
-compare_files(char *name[], int count, int max_buffer) {
+compare_files(char *name[], int count, int max_buffer, int max_open_files) {
     if (count < 2) {
         return 0;
     }
 
     fmanage *fm = (fmanage *) salloc(sizeof(fmanage), handle_exit);
-    fm_init(fm, MAX_OPEN_FILES);
+    fm_init(fm, max_open_files > 0 ? max_open_files : count);
 
     cmpdata *cmp_data = (cmpdata *) salloc(sizeof(cmpdata), handle_exit);
 

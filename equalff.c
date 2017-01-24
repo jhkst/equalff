@@ -11,6 +11,8 @@
 #define USE_FDS 15
 #endif
 
+#define DEFAULT_MAX_OPEN_FILES FOPEN_MAX
+
 typedef struct {
     char *filepath;
     off_t st_size;
@@ -98,12 +100,12 @@ process_entry(const char *filepath, const struct stat *info, const int typeflag,
 }
 
 int
-process_same_size(file_item *files[], int count, int max_buffer) {
+process_same_size(file_item *files[], int count, int max_buffer, int max_open_files) {
     char **name = (char **) salloc(sizeof(char *) * count, handle_exit);
     for (int i = 0; i < count; i++) {
         name[i] = files[i]->filepath;
     }
-    int res = compare_files(name, count, max_buffer);
+    int res = compare_files(name, count, max_buffer, max_open_files);
     free(name);
     return res;
 }
@@ -122,8 +124,8 @@ print_usage_exit(char *execname) {
     fprintf(stderr,
             "  -b, --max-buffer=SIZE     maximum memory buffer (in bytes) for files comparing\n");
     fprintf(stderr,
-            "  -o, --max-of=COUNT        force maximum open files (default %d)\n",
-            MAX_OPEN_FILES);
+            "  -o, --max-of=COUNT        force maximum open files (default %d, 0 for indefinite open files)\n",
+            DEFAULT_MAX_OPEN_FILES);
     fprintf(stderr,
             "  -m, --min-file-size=SIZE  check only file with size grater or equal to size (default 1)\n");
     exit(1);
@@ -138,7 +140,7 @@ print_files(file_item **fi, int count) {
 }
 
 void
-process_files(file_item **fis, int min_file_size, int max_buffer) {
+process_files(file_item **fis, int max_buffer, int max_open_files, int min_file_size) {
     qsort(fis, total_files, sizeof(file_item *), cmpsizerev);
     fprintf(stderr, "done.\nStarting fast comparsion.\n");
 
@@ -160,7 +162,7 @@ process_files(file_item **fis, int min_file_size, int max_buffer) {
                 } else if (last_size > min_file_size) {
                     int cluster_count =
                             process_same_size(&fis[start], count,
-                                              max_buffer);
+                                              max_buffer, max_open_files);
 
                     stat_cluster_count += cluster_count;
                     stat_total_files_read += count;
@@ -212,7 +214,7 @@ process_folders(int folders_cnt,
         file_item **fis = create_array(file_list_head);
         free_list(file_list_head);
 
-        process_files(fis, opt_min_file_size, opt_buffer_size);
+        process_files(fis, opt_buffer_size, opt_max_open_files, opt_min_file_size);
 
         free_file_items(total_files, fis);
         free(fis);
@@ -226,7 +228,7 @@ main(int argc, char *argv[]) {
     int opt_same_fs = 0;
     int opt_follow_symlinks = 0;
     int opt_buffer_size = -1;
-    int opt_max_open_files = -1;
+    int opt_max_open_files = DEFAULT_MAX_OPEN_FILES;
     int opt_min_file_size = 1;
     char **folders;
 
