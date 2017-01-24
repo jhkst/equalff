@@ -1,0 +1,50 @@
+NAME
+    equalff - fast equal files finder
+
+SYNOPSIS
+    equalff [OPTIONS] <FOLDER> [FOLDER]...
+
+DESCRIPTION
+    Lookup equal files by their content by very fast algorithm.
+
+    Mandatory arguments to long options are mandatory for short options too.
+
+    -f, --same-fs
+         process files only on one filesystem
+
+    -s, --follow-symlinks
+         follow symlinks when processing files
+
+    -b, --max-buffer=SIZE     
+         maximum memory buffer (in bytes) for files comparing
+
+    -o, --max-of=COUNT
+         force maximum open files (default FOPEN_MAX, 0 for indefinite open files)
+
+    -m, --min-file-size=SIZE
+         check only file with size grater or equal to size (default 1)
+
+  Exit status:
+     0         OK
+    10         out of memory 
+    other >0   another error
+
+EXAMPLES
+    The command:
+         equalff -f /
+    
+    finds duplicate files in root and does not compare files on different filesystem
+    
+    The command:
+         equalff -o 4 $HOME
+
+    finds duplicate files in home directory and does not open more than 4 files during processing
+
+    The command:
+         equalff ~/Pictures
+
+    finds duplacate files in Picutres directory
+
+
+AUTHOR
+    Written by jhkst@centrum.cz
