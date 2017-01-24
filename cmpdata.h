@@ -5,7 +5,7 @@
 #include "salloc.h"
 #include <stdio.h>
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 32768
 
 typedef struct cmpdata {
     int size;
