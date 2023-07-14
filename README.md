@@ -40,9 +40,20 @@ $ equalff ~/
 <stderr>Total equality clusters: 2
 ```
 
+### Algorithm
+- **equality cluster** is a set of files which are equal in a stage of comparison
+1. files are listed and sorted by size (ascending)
+1. if the files are equal in size, they are added to equality cluster. (if there is only one file in equality cluster it's skipped)
+1. files in equality cluster are compared in byte-blocks (from the beginning of the file)
+1. depending on the result of block comparison the equality cluster is split into smaller clusters using the union-find algorithm with compressed structure
+1. comparing is repeated to the end of files
+1. finally clusters are printed to stdout
+
 ### Advantages/Disadvantages
 **Advantages**
 - It's mostly really faster than others, it reads only those bytes(blocks) which are necessary.
+- All files are read no more than once.
+- No hash algorithm is used (less processor computation:)
 
 **Disadvantages**
 - It does not compute hash of file content so the result cannot be reused.
@@ -51,7 +62,10 @@ $ equalff ~/
 - On some filesystems (like FAT) it's not possible to open more than 16 files at once. This can be changed by **--max-of** option.
 - Not tested with hardlinks and sparse files.
 - Not parallelized.
-- On non-SSD disks it's slower than others (that's because of file fragmentation). See [#1](https://github.com/jhkst/equalff/issues/1)
+- On non-SSD disks it may be slower than others utilities (because of file fragmentation). See [#1](https://github.com/jhkst/equalff/issues/1)
+
+### Algorithm
+- files are 
 
 ### Comparison
 TBD
