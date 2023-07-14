@@ -42,36 +42,41 @@ $ equalff ~/
 
 ### Advantages/Disadvantages
 **Advantages**
-- It's really faster than others, it reads only those bytes(blocks) which are necessary.
+- It's mostly really faster than others, it reads only those bytes(blocks) which are necessary.
 
 **Disadvantages**
 - It does not compute hash of file content so the result cannot be reused.
 - There are some memory limits (so not suitable for tiny systems).
+- It does not read last bytes in first stage of comparison, where the probability of non-equality is high. This slows down the process a little bit.
+- On some filesystems (like FAT) it's not possible to open more than 16 files at once. This can be changed by **--max-of** option.
+- Not tested with hardlinks and sparse files.
+- Not parallelized.
+- On non-SSD disks it's slower than others (that's because of file fragmentation). See [#1](https://github.com/jhkst/equalff/issues/1)
 
-### Comparsion
+### Comparison
 TBD
 
-| utility name | language | exact command | average time(*) |
-|--------------|----------|---------------|-----------------|
-| [fslint](http://www.pixelbeat.org/fslint/)                | python |                 |
-| [dupedit](http://www.pixelbeat.org/fslint/)                | python |                 |
-| [fdupes](https://github.com/adrianlopezroche/fdupes)      | C      |                 |
-| [finddup](http://finddup.sourceforge.net/)                | perl   |                 |
-| [rmdupe](https://github.com/IgnorantGuru/rmdupe)          | shell  |                 |
-| [dupmerge](https://sourceforge.net/projects/dupmerge/)    | C      |                 |
-| [dupseek](http://www.beautylabs.net/software/dupseek.html)| perl   |                 |
-| [fdf](https://github.com/harski/fdf)                      | C      |                 |
-| [freedups](http://www.stearns.org/freedups/)              | perl   |                 |
-| [freedup](http://freedup.org/)                            | C      |                 |           
-| [liten](https://code.google.com/archive/p/liten/)         | python |                 |
-| [liten2](https://code.google.com/archive/p/liten2/)                | python |                 |
-| [rdfind](https://rdfind.pauldreik.se/)                    | C++    |                 |
-| [ua](https://github.com/euedge/ua)                        | C++    |                 |
-| [findrepe](https://github.com/franci/findrepe)            | Java   |                 |
-| [fdupe](https://neaptide.org/projects/fdupe/)             | perl   |                 |
-| [ssdeep](http://ssdeep.sourceforge.net/)(**)              | C/C++  |                 |
-| [duff](http://duff.dreda.org/)                            | C      |                 |
-| equalff                                                   | C      |                 |
+| utility name                                               | language | exact command | average time(*) |
+|------------------------------------------------------------|----------|---------------|-----------------|
+| [fslint](http://www.pixelbeat.org/fslint/)                 | python   |               |                 |
+| [dupedit](http://www.pixelbeat.org/fslint/)                | python   |               |                 |
+| [fdupes](https://github.com/adrianlopezroche/fdupes)       | C        |               |                 |
+| [finddup](http://finddup.sourceforge.net/)                 | perl     |               |                 |
+| [rmdupe](https://github.com/IgnorantGuru/rmdupe)           | shell    |               |                 |
+| [dupmerge](https://sourceforge.net/projects/dupmerge/)     | C        |               |                 |
+| [dupseek](http://www.beautylabs.net/software/dupseek.html) | perl     |               |                 |
+| [fdf](https://github.com/harski/fdf)                       | C        |               |                 |
+| [freedups](http://www.stearns.org/freedups/)               | perl     |               |                 |
+| [freedup](http://freedup.org/)                             | C        |               |                 |
+| [liten](https://code.google.com/archive/p/liten/)          | python   |               |                 |
+| [liten2](https://code.google.com/archive/p/liten2/)        | python   |               |                 |
+| [rdfind](https://rdfind.pauldreik.se/)                     | C++      |               |                 |
+| [ua](https://github.com/euedge/ua)                         | C++      |               |                 |
+| [findrepe](https://github.com/franci/findrepe)             | Java     |               |                 |
+| [fdupe](https://neaptide.org/projects/fdupe/)              | perl     |               |                 |
+| [ssdeep](http://ssdeep.sourceforge.net/)(**)               | C/C++    |               |                 |
+| [duff](http://duff.dreda.org/)                             | C        |               |                 |
+| equalff                                                    | C        |               |                 |
 
 (\*) average time of multiple runs on one path<br>
 (**) probably not exact output (to be checked)
