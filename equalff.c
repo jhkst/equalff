@@ -1,3 +1,4 @@
+#define _FILE_OFFSET_BITS 64
 #define _XOPEN_SOURCE 700
 
 #include "fcompare.h"
@@ -206,6 +207,7 @@ process_folders(int folders_cnt,
         if (result != 0) {
             fprintf(stderr, "Cannot process %s: %s\n", folders[i],
                     strerror(result));
+	    perror("nftw");
         }
     }
     if (total_files > 0) {
