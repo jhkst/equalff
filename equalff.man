@@ -1,50 +1,43 @@
 NAME
-    equalff - fast equal files finder
+    equalff - Fast Duplicate File Finder
 
 SYNOPSIS
-    equalff [OPTIONS] <FOLDER> [FOLDER]...
+    equalff [OPTIONS] <DIRECTORY> [DIRECTORY]...
 
 DESCRIPTION
-    Lookup equal files by their content by very fast algorithm.
+    equalff is a tool that finds duplicate files based on their content using a highly efficient algorithm.
 
-    Mandatory arguments to long options are mandatory for short options too.
+    Mandatory arguments for long options are also mandatory for short options.
 
     -f, --same-fs
-         process files only on one filesystem
+         Only process files within the same filesystem.
 
     -s, --follow-symlinks
-         follow symlinks when processing files
+         Follow symbolic links when processing files.
 
     -b, --max-buffer=SIZE     
-         maximum memory buffer (in bytes) for files comparing
+         Set the maximum memory buffer (in bytes) for file comparison.
 
     -o, --max-of=COUNT
-         force maximum open files (default FOPEN_MAX, 0 for indefinite open files)
+         Set the maximum number of open files (default is FOPEN_MAX, 0 for unlimited open files).
 
     -m, --min-file-size=SIZE
-         check only file with size grater or equal to size (default 1)
+         Only check files with a size greater than or equal to SIZE (default is 1).
 
-  Exit status:
+EXIT STATUS
      0         OK
-    10         out of memory 
-    other >0   another error
+    10         Out of memory 
+    other >0   Other errors
 
 EXAMPLES
     The command:
          equalff -f /
     
-    finds duplicate files in root and does not compare files on different filesystem
+    Finds duplicate files in the root directory without comparing files on different filesystems.
     
     The command:
          equalff -o 4 $HOME
 
-    finds duplicate files in home directory and does not open more than 4 files during processing
-
-    The command:
-         equalff ~/Pictures
-
-    finds duplacate files in Picutres directory
-
-
+    Finds duplicate files in the home directory without opening more than 4 files simultaneously during processing.
 AUTHOR
-    Written by jhkst@centrum.cz
+     Written by jhkst@centrum.cz

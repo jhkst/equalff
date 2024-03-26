@@ -33,3 +33,6 @@ equalff
 # Debug files
 *.dSYM/
 *.su
+
+.idea
+.vscode

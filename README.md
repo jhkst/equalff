@@ -1,20 +1,20 @@
-# equalff
+# Equalff
 
-**equalff** is fast equal (duplicate) files finder. It uses different algorithm than other duplicate files finders and therefore is faster then others for one run.
+**Equalff** is a high-speed duplicate file finder. It employs a unique algorithm, making it faster than other duplicate file finders for a single run.
 
-### Compile
-To compile it simply run **make** in the project root.
+## Compilation
+To compile the project, simply execute **make** in the project root.
 
-### Usage
+## Usage
 ```
-Usage: equalff [OPTIONS] <FOLDER> [FOLDER]...
+Usage: ./equalff [OPTIONS] <DIRECTORY> [DIRECTORY]...
 Find duplicate files in FOLDERs according to their content.
 
 Mandatory arguments to long options are mandatory for short options too.
   -f, --same-fs             process files only on one filesystem
   -s, --follow-symlinks     follow symlinks when processing files
   -b, --max-buffer=SIZE     maximum memory buffer (in bytes) for files comparing
-  -o, --max-of=COUNT        force maximum open files (default 16)
+  -o, --max-of=COUNT        force maximum open files (default 20, 0 for indefinite open files)
   -m, --min-file-size=SIZE  check only file with size grater or equal to size (default 1)
 ```
 
@@ -24,48 +24,46 @@ $ equalff ~/
 ```
 **Result:**
 ```
-<stderr>Looking for files ... 123 files found
-<stderr>Sorting ... done.
-<stderr>Starting fast comparsion.
+Looking for files ... 123 files found
+Sorting ... done.
+Starting fast comparsion.
 ...
-<stdout>file1-location1
-<stdout>file1-location2
-<stdout>file1-location3
-<stdout>
-<stdout>file2-location1
-<stdout>file2-location2
+file1-location1
+file1-location2
+file1-location3
+
+file2-location1
+file2-location2
 ...
-<stderr>Total files being processed: 123
-<stderr>Total files being read: 10
-<stderr>Total equality clusters: 2
+Total files being processed: 123
+Total files being read: 10
+Total equality clusters: 2
 ```
 
 ### Algorithm
-- **equality cluster** is a set of files which are equal in a stage of comparison
-1. files are listed and sorted by size (ascending)
-1. if the files are equal in size, they are added to equality cluster. (if there is only one file in equality cluster it's skipped)
-1. files in equality cluster are compared in byte-blocks (from the beginning of the file)
-1. depending on the result of block comparison the equality cluster is split into smaller clusters using the union-find algorithm with compressed structure
-1. comparing is repeated to the end of files
-1. finally clusters are printed to stdout
+- An **equality cluster** is a set of files that are identical at a certain comparison stage.
+1. Files are sorted by size in ascending order.
+1. Files of the same size are added to an equality cluster. (Clusters with only one file are skipped.)
+1. Files in an equality cluster are compared in byte-blocks, starting from the beginning of the file.
+1. Based on the comparison results, the equality cluster is divided into smaller clusters using the union-find algorithm with a compressed structure.
+1. The comparison process is repeated until the end of the files.
+1. Finally, the clusters are printed to stdout.
 
-### Advantages/Disadvantages
-**Advantages**
-- It's mostly really faster than others, it reads only those bytes(blocks) which are necessary.
-- All files are read no more than once.
-- No hash algorithm is used (less processor computation:)
+## Pros and Cons
+**Pros**
+- Generally faster than other tools as it only reads necessary bytes(blocks).
+- Each file is read only once.
+- Does not use a hash algorithm, reducing processor computation.
 
-**Disadvantages**
-- It does not compute hash of file content so the result cannot be reused.
-- There are some memory limits (so not suitable for tiny systems).
-- It does not read last bytes in first stage of comparison, where the probability of non-equality is high. This slows down the process a little bit.
-- On some filesystems (like FAT) it's not possible to open more than 16 files at once. This can be changed by **--max-of** option.
+**Cons**
+- Does not compute file content hash, so results cannot be reused.
+- Has some memory limitations, making it unsuitable for systems with limited memory.
+- Does not read the last bytes in the first comparison stage, where the probability of inequality is high, slightly slowing down the process.
+- On some filesystems (like FAT), it's not possible to open more than 16 files at once. This can be adjusted with the **--max-of** option.
 - Not tested with hardlinks and sparse files.
 - Not parallelized.
-- On non-SSD disks it may be slower than others utilities (because of file fragmentation). See [#1](https://github.com/jhkst/equalff/issues/1)
+- May be slower than other utilities on non-SSD disks due to file fragmentation. See [#1](https://github.com/jhkst/equalff/issues/1)
 
-### Algorithm
-- files are 
 
 ### Comparison
 TBD
@@ -92,12 +90,11 @@ TBD
 | [duff](http://duff.dreda.org/)                             | C        |               |                 |
 | equalff                                                    | C        |               |                 |
 
-(\*) average time of multiple runs on one path<br>
-(**) probably not exact output (to be checked)
+(\*) Average time of multiple runs on one path<br>
+(**) Output may not be exact (to be checked)
 
 ### Licensing
-see [LICENSE](LICENSE) file
+See the [LICENSE](LICENSE) file for licensing information.
 
 ### Plans
-I've plans to add selection and action features on found clusters like
-"remove last modified", "remove first modified", "keep files starting on path", etc...
+Plans are in place to add selection and action features for found clusters, such as "remove last modified", "remove first modified", "keep files starting on path", etc.

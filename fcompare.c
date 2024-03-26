@@ -1,12 +1,16 @@
-#define _GNU_SOURCE
-
 #include "cmpdata.h"
 #include "fcompare.h"
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 int
-ufsorter(const void *p1, const void *p2, void *arg) {
+#ifdef __APPLE__
+ufsorter(void *arg, const void *p1, const void *p2)
+#else
+ufsorter(const void *p1, const void *p2, void *arg)
+#endif
+{
     int f1 = *((int *) p1);
     int f2 = *((int *) p2);
     cmpdata *cd = (cmpdata *) arg;
@@ -75,8 +79,11 @@ compare_files(char *name[], int count, int max_buffer, int max_open_files) {
             cmp_data->readed = readed;
 
             memcpy(order_cpy, cmp_data->order, sizeof(int) * count);
-            qsort_r(&order_cpy[group_start], group_size, sizeof(int),
-                    ufsorter, cmp_data);
+            #ifdef __APPLE__
+            qsort_r(&order_cpy[group_start], group_size, sizeof(int), cmp_data, ufsorter);
+            #else
+            qsort_r(&order_cpy[group_start], group_size, sizeof(int), ufsorter, cmp_data);
+            #endif
             memcpy(cmp_data->order, order_cpy, sizeof(int) * count);
         } else {
             if (cmp_data->file[cmp_data->order[group_start]] != NULL) {

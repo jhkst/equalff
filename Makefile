@@ -1,7 +1,7 @@
 TARGET=equalff
 LIBS=
 CC=gcc
-CFLAGS=-g -Wall -std=gnu99 -D_XOPEN_SOURCE=700 -D_FILE_OFFSET_BITS=64
+CFLAGS=-g -Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
 
 .PHONY: default all clean
 

@@ -2,6 +2,12 @@
 
 #define MIN_BUFFER_PER_FILE 128
 
+/**
+ * Initialize cmpdata structure
+ * @param cd cmpdata structure
+ * @param size number of files
+ * @param max_buffer maximal buffer size
+ */
 void
 cmp_init(cmpdata *cd, int size, size_t max_buffer) {
     cd->size = size;
@@ -33,6 +39,10 @@ cmp_init(cmpdata *cd, int size, size_t max_buffer) {
     }
 }
 
+/**
+ * Free cmpdata structure
+ * @param cd cmpdata structure
+ */
 void
 cmp_free(cmpdata *cd) {
     for (int i = 0; i < cd->size; i++) {
@@ -44,6 +54,13 @@ cmp_free(cmpdata *cd) {
     free(cd->order);
 }
 
+/**
+ * Compare two files
+ * @param cd cmpdata structure
+ * @param idx1 index of first file
+ * @param idx2 index of second file
+ * @return 0 if files are same, 1 if files are different, -1 if error
+ */
 int
 cmp_uf_ordered_same(cmpdata *cd, int sidx1, int sidx2) {
     return cmp_uf_same(cd, cd->order[sidx1], cd->order[sidx2]);
@@ -54,6 +71,12 @@ cmp_uf_same(cmpdata *cd, int idx1, int idx2) {
     return cmp_uf_root(cd, idx1) == cmp_uf_root(cd, idx2);
 }
 
+/**
+ * Find root of union-find structure
+ * @param cd cmpdata structure
+ * @param idx index of file
+ * @return root of union-find structure
+ */
 int
 cmp_uf_root(cmpdata *cd, int idx) {
     if (cd->uf_parent[idx] < 0) {
@@ -74,6 +97,12 @@ cmp_uf_reset_ordered(cmpdata *cd, int sidx, size_t size) {
     }
 }
 
+/**
+ * Union two files
+ * @param cd cmpdata structure
+ * @param idx1 index of first file
+ * @param idx2 index of second file
+ */
 void
 cmp_uf_union(cmpdata *cd, int idx1, int idx2) {
     int not_set1 = cd->uf_parent[idx1] < 0;

@@ -37,6 +37,11 @@ add_item(item *where, file_item *fi) {
     return where;
 }
 
+/**
+ * Create array of file_item pointers from linked list.
+ * @param head head of linked list
+ * @return array of file_item pointers
+ */
 file_item **
 create_array(item *head) {
     int i = 0;
@@ -53,6 +58,10 @@ create_array(item *head) {
     return fis;
 }
 
+/**
+ * Free linked list.
+ * @param head head of linked list
+ */
 void
 free_list(item *head) {
     item *current = head;
@@ -65,6 +74,11 @@ free_list(item *head) {
     free(current);
 }
 
+/**
+ * Free array of file_item pointers.
+ * @param count number of items in array
+ * @param file_items array of file_item pointers
+ */
 void
 free_file_items(size_t count, file_item **file_items) {
     for (int i = 0; i < count; i++) {
@@ -73,6 +87,12 @@ free_file_items(size_t count, file_item **file_items) {
     }
 }
 
+/**
+ * Compare two file_item pointers by their size.
+ * @param p1 first file_item pointer
+ * @param p2 second file_item pointer
+ * @return 1 if first is greater, -1 if second is greater, 0 if equal
+ */
 int
 cmpsizerev(const void *p1, const void *p2) {
     file_item **fi1 = (file_item **) p1;
@@ -84,6 +104,14 @@ cmpsizerev(const void *p1, const void *p2) {
     // return (a1 > a2) - (a1 < a2);
 }
 
+/**
+ * Process file entry in directory tree. See nftw(3) for more information.
+ * @param filepath path to file
+ * @param info stat structure
+ * @param typeflag type of file
+ * @param pathinfo additional information
+ * @return 0
+ */
 int
 process_entry(const char *filepath, const struct stat *info, const int typeflag,
               struct FTW *pathinfo) {
@@ -111,27 +139,36 @@ process_same_size(file_item *files[], int count, int max_buffer, int max_open_fi
     return res;
 }
 
+/**
+ * Print usage and exit.
+ * @param execname name of executable
+ */
 void
 print_usage_exit(char *execname) {
-    fprintf(stderr, "Usage: %s [OPTIONS] <FOLDER> [FOLDER]...\n", execname);
+    fprintf(stderr, "Usage: %s [OPTIONS] <DIRECTORY> [DIRECTORY]...\n", execname);
     fprintf(stderr,
-            "Find duplicate files in FOLDERs according to their content.\n\n");
+            "Find duplicate files in the specified directories based on their content.\n\n");
     fprintf(stderr,
-            "Mandatory arguments to long options are mandatory for short options too.\n");
+            "Mandatory arguments for long options are also mandatory for short options.\n");
     fprintf(stderr,
-            "  -f, --same-fs             process files only on one filesystem\n");
+            "  -f, --same-fs             Only process files within the same filesystem\n");
     fprintf(stderr,
-            "  -s, --follow-symlinks     follow symlinks when processing files\n");
+            "  -s, --follow-symlinks     Follow symbolic links when processing files\n");
     fprintf(stderr,
-            "  -b, --max-buffer=SIZE     maximum memory buffer (in bytes) for files comparing\n");
+            "  -b, --max-buffer=SIZE     Set the maximum memory buffer (in bytes) for file comparison\n");
     fprintf(stderr,
-            "  -o, --max-of=COUNT        force maximum open files (default %d, 0 for indefinite open files)\n",
+            "  -o, --max-of=COUNT        Set the maximum number of open files (default %d)\n",
             DEFAULT_MAX_OPEN_FILES);
     fprintf(stderr,
-            "  -m, --min-file-size=SIZE  check only file with size grater or equal to size (default 1)\n");
+            "  -m, --min-file-size=SIZE  Only check files with a size greater than or equal to SIZE (default 1)\n");
     exit(1);
 }
 
+/**
+ * Print files to stdout.
+ * @param fi array of file_item pointers
+ * @param count number of items in array
+ */
 void
 print_files(file_item **fi, int count) {
     fprintf(stdout, "\n");
@@ -140,6 +177,13 @@ print_files(file_item **fi, int count) {
     }
 }
 
+/**
+ * Process files in array.
+ * @param fis array of file_item pointers
+ * @param max_buffer maximum memory buffer for files comparing
+ * @param max_open_files maximum open files
+ * @param min_file_size minimum file size
+ */
 void
 process_files(file_item **fis, int max_buffer, int max_open_files, int min_file_size) {
     qsort(fis, total_files, sizeof(file_item *), cmpsizerev);
@@ -182,6 +226,16 @@ process_files(file_item **fis, int max_buffer, int max_open_files, int min_file_
     fprintf(stderr, "Total equality clusters: %d\n", stat_cluster_count);
 }
 
+/**
+ * Process folders.
+ * @param folders_cnt number of folders
+ * @param folders array of folder names
+ * @param opt_same_fs process files only on one filesystem
+ * @param opt_follow_symlinks follow symlinks when processing files
+ * @param opt_buffer_size maximum memory buffer for files comparing
+ * @param opt_max_open_files maximum open files
+ * @param opt_min_file_size minimum file size
+ */
 void
 process_folders(int folders_cnt,
                 char **folders,
@@ -207,7 +261,7 @@ process_folders(int folders_cnt,
         if (result != 0) {
             fprintf(stderr, "Cannot process %s: %s\n", folders[i],
                     strerror(result));
-	    perror("nftw");
+            perror("nftw");
         }
     }
     if (total_files > 0) {
@@ -225,6 +279,12 @@ process_folders(int folders_cnt,
     }
 }
 
+/**
+ * Main function.
+ * @param argc number of arguments
+ * @param argv array of arguments
+ * @return exit code
+ */
 int
 main(int argc, char *argv[]) {
     int opt_same_fs = 0;
