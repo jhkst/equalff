@@ -11,16 +11,52 @@ ufsorter(void *arg, const void *p1, const void *p2)
 ufsorter(const void *p1, const void *p2, void *arg)
 #endif
 {
-    int f1 = *((int *) p1);
-    int f2 = *((int *) p2);
+    int f1_idx = *((int *) p1);
+    int f2_idx = *((int *) p2);
     cmpdata *cd = (cmpdata *) arg;
 
-    int cmp = memcmp(cd->data[f1], cd->data[f2], cd->readed);
+    int f1_open_failed = (cd->file[f1_idx] == NULL);
+    int f2_open_failed = (cd->file[f2_idx] == NULL);
+
+    if (f1_open_failed && f2_open_failed) {
+        cmp_uf_diff(cd, f1_idx, f2_idx);
+        return 0;
+    }
+    if (f1_open_failed || f2_open_failed) {
+        cmp_uf_diff(cd, f1_idx, f2_idx);
+        return f1_open_failed ? -1 : 1;
+    }
+
+    if (cd->readed == 0) {
+        int f1_has_read_error = 0;
+        if (cd->file[f1_idx]->fd != NULL && cd->file[f1_idx]->_errno != 0 && !feof(cd->file[f1_idx]->fd)) {
+            f1_has_read_error = 1;
+        } else if (cd->file[f1_idx]->fd == NULL && cd->file[f1_idx]->_errno != 0) {
+            f1_has_read_error = 1;
+        }
+
+        int f2_has_read_error = 0;
+        if (cd->file[f2_idx]->fd != NULL && cd->file[f2_idx]->_errno != 0 && !feof(cd->file[f2_idx]->fd)) {
+            f2_has_read_error = 1;
+        } else if (cd->file[f2_idx]->fd == NULL && cd->file[f2_idx]->_errno != 0) {
+            f2_has_read_error = 1;
+        }
+
+        if (f1_has_read_error || f2_has_read_error) {
+            cmp_uf_diff(cd, f1_idx, f2_idx);
+            if (f1_has_read_error != f2_has_read_error) return f1_has_read_error ? -1 : 1;
+            return 0;
+        }
+        cmp_uf_union(cd, f1_idx, f2_idx);
+        return 0;
+    }
+
+    int cmp = memcmp(cd->data[f1_idx], cd->data[f2_idx], cd->readed);
 
     if (cmp == 0) {
-        cmp_uf_union(cd, f1, f2);
+        cmp_uf_union(cd, f1_idx, f2_idx);
     } else {
-        cmp_uf_diff(cd, f1, f2);
+        cmp_uf_diff(cd, f1_idx, f2_idx);
     }
 
     return cmp;
@@ -111,21 +147,24 @@ compare_files(char *name[], int count, int max_buffer, int max_open_files) {
     free(fm);
 
     int cluster_count = 0;
-    char *prev = name[cmp_data->order[0]];
-    int more_than_one = 0;
-    for (int i = 1; i < count + 1; i++) {
-        if (i < count && cmp_uf_ordered_same(cmp_data, i - 1, i)) {
-            more_than_one = 1;
-            fprintf(stdout, "%s\n", prev);
-        } else {
-            if (more_than_one) {
-                fprintf(stdout, "%s\n\n", prev);
-                cluster_count++;
+    if (count > 0) {
+        int i = 0;
+        while (i < count) {
+            int group_start_idx_in_order = i;
+            i++;
+            while (i < count && cmp_uf_ordered_same(cmp_data, group_start_idx_in_order, i)) {
+                i++;
             }
-            more_than_one = 0;
-        }
-        if (i < count) {
-            prev = name[cmp_data->order[i]];
+            
+            int files_in_cluster = i - group_start_idx_in_order;
+            
+            if (files_in_cluster > 1) {
+                cluster_count++;
+                fprintf(stdout, "\n");
+                for (int k = 0; k < files_in_cluster; k++) {
+                    fprintf(stdout, "%s\n", name[cmp_data->order[group_start_idx_in_order + k]]);
+                }
+            }
         }
     }
 
