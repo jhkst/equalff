@@ -42,8 +42,24 @@ fm_temp_close_count(fmanage *fm, int count) {
 
 void
 fm_free(fmanage *fm) {
+    // Close and free all actual fm_FILE entries
+    fm_FILE *current = fm->head->next;
+    while (current != fm->tail) {
+        fm_FILE *to_free = current;
+        current = current->next;
+        if (to_free->fd != NULL) {
+            fclose(to_free->fd);
+            // No need to adjust fm->count here as we are dismantling everything
+        }
+        // Assuming filename is managed externally and not sstrdup'd by fmanage itself
+        free(to_free);
+    }
+
+    // Free the sentinel nodes
     free(fm->head);
     free(fm->tail);
+    fm->head = NULL; // Avoid dangling pointers
+    fm->tail = NULL;
 }
 
 void
