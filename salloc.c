@@ -26,3 +26,18 @@ salloc(size_t size, void (*error_handle)()) {
     }
     return ref;
 }
+
+/**
+ * Safe strdup
+ * @param s string to duplicate
+ * @param error_handle function to call on error
+ * @return pointer to allocated duplicated string
+ */
+char *
+sstrdup(const char *s, void (*error_handle)()) {
+    char *new_s = strdup(s);
+    if (new_s == NULL) {
+        error_handle();
+    }
+    return new_s;
+}
