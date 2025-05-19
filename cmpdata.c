@@ -13,7 +13,7 @@ cmp_init(cmpdata *cd, int size, size_t max_buffer) {
     cd->size = size;
     cd->order = (int *) salloc(sizeof(int) * size, handle_exit);
     cd->uf_parent = (int *) salloc(sizeof(int) * size, handle_exit);
-    cd->file = (fm_FILE **) salloc(sizeof(FILE *) * size, handle_exit);
+    cd->file = (fm_FILE **) salloc(sizeof(fm_FILE *) * size, handle_exit);
     cd->data = (char **) salloc(sizeof(char *) * size, handle_exit);
 
     if (max_buffer >= 0 && max_buffer / size < MIN_BUFFER_PER_FILE) {
