@@ -5,6 +5,28 @@
 ## Compilation
 To compile the project, simply execute **make** in the project root.
 
+## Installation
+
+To install the compiled binary and its man page, run:
+
+```sh
+make install
+```
+
+By default, this will install `equalff` to `/usr/local/bin` and the man page to `/usr/local/share/man/man1`. You can specify a different installation prefix by setting the `PREFIX` variable:
+
+```sh
+make install PREFIX=~/.local
+```
+
+To uninstall, run:
+
+```sh
+make uninstall
+```
+
+(If you used a custom `PREFIX` during installation, you need to specify it for uninstallation as well.)
+
 ## Usage
 ```
 Usage: ./equalff [OPTIONS] <DIRECTORY> [DIRECTORY]...
