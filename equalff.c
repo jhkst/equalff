@@ -3,9 +3,12 @@
 
 #include "fcompare.h"
 #include "salloc.h"
+#include <errno.h>
 #include <fcntl.h>
 #include <ftw.h>
 #include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifndef USE_FDS
@@ -24,66 +27,84 @@ typedef struct _item {
     struct _item *next;
 } item;
 
-item *current_file;
-size_t total_files = 0;
+typedef struct {
+    item *list_head;    // Sentinel node for the linked list
+    item *list_tail;    // Points to the last actual item added to the list
+    size_t files_count; // Total number of files collected
+} FileCollectionCtx;
+
+static FileCollectionCtx g_file_collection;
 
 item *
-add_item(item *where, file_item *fi) {
-    where->next = (item *) salloc(sizeof(item), handle_exit);
-    where = where->next;
+add_item(item *current_tail, file_item *fi) {
+    current_tail->next = (item *) salloc(sizeof(item), handle_exit);
+    current_tail = current_tail->next;
 
-    where->fi = fi;
-    where->next = NULL;
-    return where;
+    current_tail->fi = fi;
+    current_tail->next = NULL;
+    return current_tail; // The new tail node
 }
 
 /**
  * Create array of file_item pointers from linked list.
- * @param head head of linked list
+ * @param list_sentinel_head sentinel head of linked list
+ * @param num_files total number of actual files (from g_file_collection.files_count)
  * @return array of file_item pointers
  */
 file_item **
-create_array(item *head) {
+create_array_from_list(item *list_sentinel_head, size_t num_files) {
     int i = 0;
-    item *current = head;
-    item *hlp;
+    item *current_node = list_sentinel_head->next; // Start from the first actual item
     file_item **fis =
-            (file_item **) salloc(sizeof(file_item) * total_files, handle_exit);
+            (file_item **) salloc(sizeof(file_item *) * num_files, handle_exit);
 
-    while (current->next) {
-        hlp = current->next;
-        fis[i++] = hlp->fi;
-        current = hlp;
+    while (current_node != NULL) {
+        if (i >= num_files) {
+            fprintf(stderr, "Error: More items in list than files_count in create_array_from_list\n");
+            // This indicates a discrepancy, possibly exit or handle error
+            exit(EXIT_FAILURE); 
+        }
+        fis[i++] = current_node->fi;
+        current_node = current_node->next;
+    }
+    // After the loop, i should ideally be equal to num_files.
+    // If i < num_files, the list was shorter than expected.
+    if (i != num_files) {
+         fprintf(stderr, "Warning: files_count (%zu) and items copied to array (%d) mismatch.\n", num_files, i);
+         // This might be an issue depending on whether num_files was an exact count or an estimate.
+         // For this program, it should be exact.
     }
     return fis;
 }
 
 /**
- * Free linked list.
- * @param head head of linked list
+ * Free linked list structure (the item nodes themselves).
+ * file_item structs pointed to by fi are freed separately by free_file_items_array.
+ * @param list_sentinel_head sentinel head of linked list
  */
 void
-free_list(item *head) {
-    item *current = head;
-    item *hlp;
-    while (current->next) {
-        hlp = current->next;
-        free(current);
-        current = hlp;
+free_file_list_nodes(item *list_sentinel_head) {
+    item *current_node = list_sentinel_head->next; // Start with the first actual item
+    while (current_node != NULL) {
+        item *node_to_free = current_node;
+        current_node = current_node->next;
+        free(node_to_free);
     }
-    free(current);
+    free(list_sentinel_head); // Free the sentinel node itself
 }
 
 /**
- * Free array of file_item pointers.
- * @param count number of items in array
- * @param file_items array of file_item pointers
+ * Free array of file_item pointers and the file_items themselves.
+ * @param count number of items in array (from g_file_collection.files_count)
+ * @param file_items_array array of file_item pointers
  */
 void
-free_file_items(size_t count, file_item **file_items) {
-    for (int i = 0; i < count; i++) {
-        free(file_items[i]->filepath);
-        free(file_items[i]);
+free_file_items_array(size_t count, file_item **file_items_array) {
+    for (size_t i = 0; i < count; i++) {
+        if (file_items_array[i] != NULL) { // Defensive check
+            free(file_items_array[i]->filepath); // Free the strdup'd path
+            free(file_items_array[i]);          // Free the file_item struct
+        }
     }
 }
 
@@ -119,11 +140,11 @@ process_entry(const char *filepath, const struct stat *info, const int typeflag,
         file_item *fi =
                 (file_item *) salloc(sizeof(file_item), handle_exit);
 
-        fi->filepath = strdup(filepath);
+        fi->filepath = sstrdup(filepath, handle_exit);
         fi->st_size = info->st_size;
 
-        current_file = add_item(current_file, fi);
-        total_files++;
+        g_file_collection.list_tail = add_item(g_file_collection.list_tail, fi);
+        g_file_collection.files_count++;
     }
     return 0;
 }
@@ -161,6 +182,8 @@ print_usage_exit(char *execname) {
             DEFAULT_MAX_OPEN_FILES);
     fprintf(stderr,
             "  -m, --min-file-size=SIZE  Only check files with a size greater than or equal to SIZE (default 1)\n");
+    fprintf(stderr,
+            "  -h, --help                Display this help message and exit\n");
     exit(1);
 }
 
@@ -180,48 +203,55 @@ print_files(file_item **fi, int count) {
 /**
  * Process files in array.
  * @param fis array of file_item pointers
+ * @param num_files_in_array total number of files in fis (from g_file_collection.files_count)
  * @param max_buffer maximum memory buffer for files comparing
  * @param max_open_files maximum open files
  * @param min_file_size minimum file size
  */
 void
-process_files(file_item **fis, int max_buffer, int max_open_files, int min_file_size) {
-    qsort(fis, total_files, sizeof(file_item *), cmpsizerev);
-    fprintf(stderr, "done.\nStarting fast comparsion.\n");
+process_files_array(file_item **fis, size_t num_files_in_array, int max_buffer, int max_open_files, int min_file_size) {
+    if (num_files_in_array == 0) {
+        return;
+    }
+
+    qsort(fis, num_files_in_array, sizeof(file_item *), cmpsizerev);
+    fprintf(stderr, "done.\nStarting fast comparison.\n");
 
     int stat_cluster_count = 0;
     int stat_total_files_read = 0;
-    off_t last_size = fis[0]->st_size;
-    int start = 0;
-    int count = 1;
-    for (int i = 1; i < total_files + 1; i++) {
-        if (i < total_files && last_size == fis[i]->st_size) {
-            count++;
-        } else {
-            if (count > 1) {
-                if (last_size == 0 && min_file_size <= 0) {
-                    print_files(&fis[start], count);
 
-                    stat_cluster_count++;
-                    stat_total_files_read += count;
-                } else if (last_size > min_file_size) {
-                    int cluster_count =
-                            process_same_size(&fis[start], count,
-                                              max_buffer, max_open_files);
+    size_t i = 0; // Use size_t for consistency with num_files_in_array
+    while (i < num_files_in_array) {
+        size_t group_start_idx = i;
+        // Find end of current group of same-sized files
+        while (i < num_files_in_array && fis[i]->st_size == fis[group_start_idx]->st_size) {
+            i++;
+        }
 
-                    stat_cluster_count += cluster_count;
-                    stat_total_files_read += count;
+        int count_in_group = i - group_start_idx;
+        off_t current_size = fis[group_start_idx]->st_size;
+
+        if (count_in_group > 1) {
+            if (current_size == 0 && min_file_size <= 0) {
+                print_files(&fis[group_start_idx], count_in_group);
+                stat_cluster_count++;
+                stat_total_files_read += count_in_group;
+            } else if (current_size >= min_file_size && current_size > 0) {
+                int clusters_found_in_group =
+                        process_same_size(&fis[group_start_idx], count_in_group,
+                                          max_buffer, max_open_files);
+                
+                if (clusters_found_in_group > 0) {
+                    stat_cluster_count += clusters_found_in_group;
+                    // All files in this size group were involved in a check if clusters were found
+                    // This stat might need refinement based on how process_same_size reports its work
+                    stat_total_files_read += count_in_group; 
                 }
             }
-            count = 1;
-            start = i;
-        }
-        if (i < total_files) {
-            last_size = fis[i]->st_size;
         }
     }
 
-    fprintf(stderr, "Total files being processed: %zu\n", total_files);
+    fprintf(stderr, "Total files being processed: %zu\n", num_files_in_array);
     fprintf(stderr, "Total files being read: %d\n", stat_total_files_read);
     fprintf(stderr, "Total equality clusters: %d\n", stat_cluster_count);
 }
@@ -242,8 +272,13 @@ process_folders(int folders_cnt,
                 int opt_same_fs,
                 int opt_follow_symlinks,
                 int opt_buffer_size, int opt_max_open_files, int opt_min_file_size) {
-    item *file_list_head = (item *) salloc(sizeof(item), handle_exit);
-    current_file = file_list_head;
+    
+    // Initialize the global file collection context
+    g_file_collection.list_head = (item *) salloc(sizeof(item), handle_exit);
+    g_file_collection.list_head->fi = NULL;    // Sentinel node has no file_item
+    g_file_collection.list_head->next = NULL;
+    g_file_collection.list_tail = g_file_collection.list_head; // List is empty, tail is head
+    g_file_collection.files_count = 0;
 
     fprintf(stderr, "Looking for files ... ");
 
@@ -260,20 +295,29 @@ process_folders(int folders_cnt,
                 nftw(folders[i], process_entry, USE_FDS, flag);
         if (result != 0) {
             fprintf(stderr, "Cannot process %s: %s\n", folders[i],
-                    strerror(result));
-            perror("nftw");
+                    strerror(errno));
         }
     }
-    if (total_files > 0) {
-        fprintf(stderr, "%zu files found\nSorting ... ", total_files);
+    if (g_file_collection.files_count > 0) {
+        fprintf(stderr, "%zu files found\nSorting ... ", g_file_collection.files_count);
 
-        file_item **fis = create_array(file_list_head);
-        free_list(file_list_head);
+        file_item **fis = create_array_from_list(g_file_collection.list_head, g_file_collection.files_count);
+        
+        process_files_array(fis, g_file_collection.files_count, opt_buffer_size, opt_max_open_files, opt_min_file_size);
 
-        process_files(fis, opt_buffer_size, opt_max_open_files, opt_min_file_size);
-
-        free_file_items(total_files, fis);
+        // Cleanup sequence:
+        // 1. Free the content pointed to by the array (file_item structs and their filepaths)
+        free_file_items_array(g_file_collection.files_count, fis);
+        // 2. Free the array of pointers itself
         free(fis);
+        // 3. Free the linked list nodes (item structs)
+        free_file_list_nodes(g_file_collection.list_head);
+        
+        // Reset global context pointers for safety, though not strictly necessary if program exits soon
+        g_file_collection.list_head = NULL;
+        g_file_collection.list_tail = NULL;
+        g_file_collection.files_count = 0;
+
     } else {
         fprintf(stderr, "No files to process\n");
     }
@@ -295,35 +339,54 @@ main(int argc, char *argv[]) {
     char **folders;
 
     static struct option long_options[] = {
-            {"same-fs",         no_argument,       0, 0},
-            {"follow-symlinks", no_argument,       0, 0},
-            {"max-buffer",      required_argument, 0, 0},
-            {"max-of",          required_argument, 0, 0},
-            {"min-file-size",   required_argument, 0, 0},
+            {"same-fs",         no_argument,       0, 'f'},
+            {"follow-symlinks", no_argument,       0, 's'},
+            {"max-buffer",      required_argument, 0, 'b'},
+            {"max-of",          required_argument, 0, 'o'},
+            {"min-file-size",   required_argument, 0, 'm'},
+            {"help",            no_argument,       0, 'h'},
             {0, 0,                                 0, 0}
     };
 
-    int option_index = 0;
+    int c;
 
-    while ((getopt_long(argc, argv, "fsb:o:m:", long_options, &option_index)) !=
-           -1) {
-        switch (option_index) {
-            case 0:
+    while ((c = getopt_long(argc, argv, "fsb:o:m:h", long_options, NULL)) != -1) {
+        switch (c) {
+            case 'f':
                 opt_same_fs = 1;
                 break;
-            case 1:
+            case 's':
                 opt_follow_symlinks = 1;
                 break;
-            case 2:
+            case 'b':
                 opt_buffer_size = atoi(optarg);
+                if (opt_buffer_size <= 0) {
+                    fprintf(stderr, "Error: max-buffer must be a positive integer.\n");
+                    print_usage_exit(argv[0]);
+                }
                 break;
-            case 3:
+            case 'o':
                 opt_max_open_files = atoi(optarg);
+                if (opt_max_open_files <= 0) {
+                    fprintf(stderr, "Error: max-of must be a positive integer.\n");
+                    print_usage_exit(argv[0]);
+                }
                 break;
-            case 4:
+            case 'm':
                 opt_min_file_size = atoi(optarg);
+                if (opt_min_file_size < 0) {
+                    fprintf(stderr, "Error: min-file-size must be a non-negative integer.\n");
+                    print_usage_exit(argv[0]);
+                }
+                break;
+            case 'h':
+                print_usage_exit(argv[0]);
+                break;
+            case '?':
+                print_usage_exit(argv[0]);
                 break;
             default:
+                fprintf(stderr, "Internal error: unhandled option character '%c'.\n", c);
                 print_usage_exit(argv[0]);
         }
     }
@@ -347,3 +410,5 @@ main(int argc, char *argv[]) {
 
     return 0;
 }
+
+
