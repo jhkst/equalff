@@ -35,6 +35,12 @@ typedef struct {
 
 static FileCollectionCtx g_file_collection;
 
+static int cli_global_first_output_emitted = 0; // 0 = false, 1 = true
+
+typedef struct {
+    int clusters_found_this_call; // Tracks clusters found for a specific call to compare_files_async
+} CliAsyncCallbackLocalContext;
+
 item *
 add_item(item *current_tail, file_item *fi) {
     current_tail->next = (item *) salloc(sizeof(item), handle_exit);
@@ -149,15 +155,53 @@ process_entry(const char *filepath, const struct stat *info, const int typeflag,
     return 0;
 }
 
+// Callback function to print duplicates as they are found
+static void cli_output_callback(const DuplicateSet *duplicates, void *user_data) {
+    CliAsyncCallbackLocalContext *local_ctx = (CliAsyncCallbackLocalContext *)user_data;
+
+    // The original output format has a blank line before each new set of duplicates.
+    fprintf(stdout, "\n"); 
+
+    for (int i = 0; i < duplicates->count; i++) {
+        fprintf(stdout, "%s\n", duplicates->paths[i]);
+    }
+    cli_global_first_output_emitted = 1; // Mark that some output has occurred for overall formatting
+    if (local_ctx) {
+        local_ctx->clusters_found_this_call++;
+    }
+}
+
 int
-process_same_size(file_item *files[], int count, int max_buffer, int max_open_files) {
-    char **name = (char **) salloc(sizeof(char *) * count, handle_exit);
+process_same_size_async(file_item *files[], int count, int max_buffer, int max_open_files) {
+    char **name = (char **) salloc(sizeof(char *) * count, NULL); 
+    if (!name) {
+        fprintf(stderr, "Error: Failed to allocate memory for file names in process_same_size_async.\n");
+        return 0; 
+    }
     for (int i = 0; i < count; i++) {
         name[i] = files[i]->filepath;
     }
-    int res = compare_files(name, count, max_buffer, max_open_files);
-    free(name);
-    return res;
+
+    CliAsyncCallbackLocalContext local_cb_ctx = {0};
+    char *error_msg = NULL;
+
+    int ret_code = compare_files_async(name, count, max_buffer, max_open_files, 
+                                       cli_output_callback, &local_cb_ctx, &error_msg);
+    free(name); 
+
+    if (ret_code != 0) {
+        fprintf(stderr, "Error during file comparison: %s (Code: %d)\n",
+                error_msg ? error_msg : strerror(ret_code), 
+                ret_code);
+        if (error_msg) {
+            free_error_message(error_msg);
+        }
+        return 0; // Return 0 clusters if an error occurred during the async call itself
+    }
+    // If compare_files_async succeeded, errors during salloc/sstrdup in callbacks
+    // are handled internally by the library and shouldn't stop cli_output_callback from being called for other sets.
+    // The number of clusters actually printed and counted is in local_cb_ctx.
+    return local_cb_ctx.clusters_found_this_call;
 }
 
 /**
@@ -176,7 +220,7 @@ print_usage_exit(char *execname) {
     fprintf(stderr,
             "  -s, --follow-symlinks     Follow symbolic links when processing files\n");
     fprintf(stderr,
-            "  -b, --max-buffer=SIZE     Set the maximum memory buffer (in bytes) for file comparison\n");
+            "  -b, --max-buffer=SIZE     Set the maximum memory buffer (in bytes) for file comparison (default 8192, min 128)\n");
     fprintf(stderr,
             "  -o, --max-of=COUNT        Set the maximum number of open files (default %d)\n",
             DEFAULT_MAX_OPEN_FILES);
@@ -217,42 +261,43 @@ process_files_array(file_item **fis, size_t num_files_in_array, int max_buffer, 
     qsort(fis, num_files_in_array, sizeof(file_item *), cmpsizerev);
     fprintf(stderr, "done.\nStarting fast comparison.\n");
 
+    cli_global_first_output_emitted = 0; // Reset for this processing run
     int stat_cluster_count = 0;
-    int stat_total_files_read = 0;
+    
+    size_t current_idx = 0;
+    while (current_idx < num_files_in_array) {
+        size_t group_start_idx = current_idx;
+        long long current_group_file_size = fis[group_start_idx]->st_size;
 
-    size_t i = 0; // Use size_t for consistency with num_files_in_array
-    while (i < num_files_in_array) {
-        size_t group_start_idx = i;
-        // Find end of current group of same-sized files
-        while (i < num_files_in_array && fis[i]->st_size == fis[group_start_idx]->st_size) {
-            i++;
+        // Advance current_idx to find the end of the current group of same-sized files
+        current_idx++; 
+        while (current_idx < num_files_in_array && fis[current_idx]->st_size == current_group_file_size) {
+            current_idx++;
         }
+        
+        int count_in_this_group = current_idx - group_start_idx;
 
-        int count_in_group = i - group_start_idx;
-        off_t current_size = fis[group_start_idx]->st_size;
-
-        if (count_in_group > 1) {
-            if (current_size == 0 && min_file_size <= 0) {
-                print_files(&fis[group_start_idx], count_in_group);
+        if (count_in_this_group > 1) {
+            // Special handling for zero-byte files if min_file_size allows them
+            if (current_group_file_size == 0 && min_file_size <= 0) {
+                // All zero-byte files are considered one set of duplicates by original logic
+                print_files(&fis[group_start_idx], count_in_this_group);
                 stat_cluster_count++;
-                stat_total_files_read += count_in_group;
-            } else if (current_size >= min_file_size && current_size > 0) {
-                int clusters_found_in_group =
-                        process_same_size(&fis[group_start_idx], count_in_group,
-                                          max_buffer, max_open_files);
-                
-                if (clusters_found_in_group > 0) {
-                    stat_cluster_count += clusters_found_in_group;
-                    // All files in this size group were involved in a check if clusters were found
-                    // This stat might need refinement based on how process_same_size reports its work
-                    stat_total_files_read += count_in_group; 
-                }
+                if(count_in_this_group > 0) cli_global_first_output_emitted = 1; // Mark output occurred
+            } 
+            // For non-zero sized files that meet min_file_size criteria
+            else if (current_group_file_size > 0 && current_group_file_size >= min_file_size) {
+                stat_cluster_count += process_same_size_async(&fis[group_start_idx], count_in_this_group, max_buffer, max_open_files);
             }
+            // Files smaller than min_file_size (and not zero meeting the condition above) are skipped
         }
     }
 
+    if (cli_global_first_output_emitted) {
+      fprintf(stdout, "\n"); // Ensure a final newline if any output was made, to separate from stderr summary
+    }
     fprintf(stderr, "Total files being processed: %zu\n", num_files_in_array);
-    fprintf(stderr, "Total files being read: %d\n", stat_total_files_read);
+    // fprintf(stderr, "Total files being read: %d\n", stat_total_readed_files); // This stat is hard to get now
     fprintf(stderr, "Total equality clusters: %d\n", stat_cluster_count);
 }
 
@@ -333,7 +378,7 @@ int
 main(int argc, char *argv[]) {
     int opt_same_fs = 0;
     int opt_follow_symlinks = 0;
-    int opt_buffer_size = -1;
+    int opt_buffer_size = 8192; // Set a default positive buffer size
     int opt_max_open_files = DEFAULT_MAX_OPEN_FILES;
     int opt_min_file_size = 1;
     char **folders;
@@ -410,5 +455,3 @@ main(int argc, char *argv[]) {
 
     return 0;
 }
-
-

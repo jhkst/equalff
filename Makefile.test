@@ -1,0 +1,42 @@
+CC=gcc
+
+# Assuming this Makefile.test is in the root of equalff-lib project
+PROJ_ROOT = .
+LIB_DIR = $(PROJ_ROOT)/lib
+
+TARGET = test_harness
+SOURCES = test_harness.c
+OBJECTS = $(SOURCES:.c=.o)
+
+# Include path for fcompare.h and other library headers
+CFLAGS = -g -Wall -std=gnu99 -I$(LIB_DIR)
+# Linker path for libequalff.so and library name
+LDFLAGS = -L$(LIB_DIR)
+LIBS = -lequalff
+
+# On macOS, to help find the .dylib at runtime during testing from the build location:
+# This tells the linker to add a runtime search path for the library relative to the executable.
+# For a test harness built in the project root, and the library in ./lib/
+# If test_harness is in ./ and lib is in ./lib, then rpath should point to ./lib
+# Or more robustly, relative to executable: @executable_path/lib if library is moved with executable
+# For local testing, an absolute path or relative from PWD can work.
+# Let's use an rpath that assumes libequalff.dylib is in ./lib when ./test_harness is run.
+RPATh_FLAG = -Wl,-rpath,$(PROJ_ROOT)/lib
+# For Linux, it would be: RPATh_FLAG = -Wl,-rpath=\'$$ORIGIN/../lib\' # If executable is in a bin dir and lib is in lib dir one level up
+# Or simply -Wl,-rpath,$(PROJ_ROOT)/lib if running from project root
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) $(RPATh_FLAG) $(LIBS) -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJECTS) $(TARGET) test*.txt
+
+run: all
+	./$(TARGET)
+
+.PHONY: all clean run 

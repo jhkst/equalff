@@ -5,29 +5,48 @@ SYNOPSIS
     equalff [OPTIONS] <DIRECTORY> [DIRECTORY]...
 
 DESCRIPTION
-    equalff is a tool that finds duplicate files based on their content using a highly efficient algorithm.
+    equalff efficiently finds duplicate files within the specified directories.
+    It first groups files by size, then performs content comparison only on
+    files of identical size to identify duplicates.
 
     Mandatory arguments for long options are also mandatory for short options.
 
+OPTIONS
     -f, --same-fs
-         Only process files within the same filesystem.
+         Only process files within the same filesystem as the starting directory.
 
     -s, --follow-symlinks
-         Follow symbolic links when processing files.
+         Follow symbolic links when scanning for files. By default, symbolic
+         links are not followed.
 
     -b, --max-buffer=SIZE     
-         Set the maximum memory buffer (in bytes) for file comparison.
+         Set the memory buffer in bytes used for file comparison. SIZE must be
+         a positive integer greater than or equal to a minimum internal threshold
+         (typically 128 bytes). A larger buffer may improve performance for
+         large files but uses more memory. If not specified, a default
+         buffer size (e.g., 8192 bytes) is assumed to be handled by the utility.
 
     -o, --max-of=COUNT
-         Set the maximum number of open files (default is FOPEN_MAX, 0 for unlimited open files).
+         Set the maximum number of files to keep open simultaneously during
+         the comparison phase. The default is FOPEN_MAX (a system-dependent
+         value, often 20). If COUNT is 0 or negative, the limit is
+         effectively the number of files in the current size-based
+         comparison group.
 
     -m, --min-file-size=SIZE
-         Only check files with a size greater than or equal to SIZE (default is 1).
+         Only check files with a size greater than or equal to SIZE bytes.
+         The default is 1 (which ignores empty files). To include empty
+         files in the duplicate check, set SIZE to 0.
+
+    -h, --help
+         Display usage information and exit.
 
 EXIT STATUS
-     0         OK
-    10         Out of memory 
-    other >0   Other errors
+    0    Success.
+    1    Operational error, such as invalid command-line options, inability
+         to access specified directories, or other general errors.
+    Other non-zero codes may be returned for critical errors like out of memory,
+    though these typically result in termination via error messages to stderr.
 
 EXAMPLES
     The command:
@@ -39,5 +58,16 @@ EXAMPLES
          equalff -o 4 $HOME
 
     Finds duplicate files in the home directory without opening more than 4 files simultaneously during processing.
+
+    To find all duplicate files, including empty ones, in '~/documents' and '/tmp/docs':
+         equalff -m 0 ~/documents /tmp/docs
+
 AUTHOR
      Written by jhkst@centrum.cz
+
+REPORTING BUGS
+    Please report bugs to [issue tracker or email address if available].
+
+COPYRIGHT
+    [Specify Copyright Information - e.g., Copyright (C) 2023 Your Name]
+    [Specify License Information - e.g., Distributed under the MIT License.]
