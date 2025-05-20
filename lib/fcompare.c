@@ -390,9 +390,16 @@ int compare_files_async(
                 current_cmp_data.readed = effective_read_for_batch;
 
                 if (group_size > 1) { 
-                     #ifdef __APPLE__
+                    #if defined(_WIN32) || defined(_WIN64)
+                        // Windows: use qsort_s. The context argument is last, similar to GNU qsort_r.
+                        // errno_t qsort_s(void *base, rsize_t nmemb, rsize_t size, int (*compar)(const void *k1, const void *k2, void *context), void *context);
+                        // We are not checking the errno_t return value for now, to keep it similar to the qsort_r void return.
+                        qsort_s(&current_cmp_data.order[group_start_idx_in_order_array], group_size, sizeof(int), ufsorter, &current_cmp_data);
+                    #elif defined(__APPLE__)
+                        // macOS (BSD variant of qsort_r): context is the 4th argument, compar is the 5th.
                         qsort_r(&current_cmp_data.order[group_start_idx_in_order_array], group_size, sizeof(int), &current_cmp_data, ufsorter);
                     #else
+                        // Linux/other (GNU qsort_r): compar is the 4th argument, context is the 5th.
                         qsort_r(&current_cmp_data.order[group_start_idx_in_order_array], group_size, sizeof(int), ufsorter, &current_cmp_data);
                     #endif
                 }
