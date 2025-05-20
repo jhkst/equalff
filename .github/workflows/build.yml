@@ -8,7 +8,10 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
@@ -19,10 +22,13 @@ jobs:
         gcc -g -Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE test_harness.c lib/*.c -I./lib -o bin/test_harness_binary -Werror
       # Assuming fcompare.h is in ./lib and there might be fcompare.c or other sources in ./lib
       # If fcompare.c (or other .c files in lib) needs to be compiled and linked:
-      # run: gcc test_harness.c lib/*.c -I./lib -o bin/test_harness_binary -Wall -Werror
+      # run: gcc -g -Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE test_harness.c lib/*.c -I./lib -o bin/test_harness_binary -Wall -Werror
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: test-harness-binary
-        path: bin/test_harness_binary 
+        name: test-harness-binary-${{ matrix.os }}
+        path: bin/test_harness_binary
+        # On Windows, the binary might be named test_harness_binary.exe
+        # To handle this, you could use a more complex path or an if condition in the upload step.
+        # For now, keeping it simple. If it's .exe on Windows, this path might need adjustment. 
