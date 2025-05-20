@@ -76,9 +76,11 @@ static int add_duplicate_set(ComparisonResult *result, char *name[], const int o
 */
 
 int
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32) || defined(_WIN64)
+// For Apple and Windows (MinGW qsort_s), the comparator takes context as the first argument.
 ufsorter(void *arg, const void *p1, const void *p2)
 #else
+// For GNU qsort_r, the comparator takes context as the last argument.
 ufsorter(const void *p1, const void *p2, void *arg)
 #endif
 {
