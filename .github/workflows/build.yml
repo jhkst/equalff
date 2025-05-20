@@ -16,7 +16,7 @@ jobs:
     - name: Compile C code
       run: |
         mkdir -p bin
-        gcc test_harness.c lib/*.c -I./lib -o bin/test_harness_binary -Wall -Werror
+        gcc -g -Wall -std=gnu99 -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE test_harness.c lib/*.c -I./lib -o bin/test_harness_binary -Werror
       # Assuming fcompare.h is in ./lib and there might be fcompare.c or other sources in ./lib
       # If fcompare.c (or other .c files in lib) needs to be compiled and linked:
       # run: gcc test_harness.c lib/*.c -I./lib -o bin/test_harness_binary -Wall -Werror
