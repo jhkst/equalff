@@ -102,8 +102,7 @@ int main() {
     remove("test3_fileC.txt");
 
     // --- Test Case 4: Empty input array (count 0) ---
-    char *test4_files[] = {}; 
-    result = compare_files(test4_files, 0, 1024*1024, 10);
+    result = compare_files(NULL, 0, 1024*1024, 10);
     print_result(result, "Empty input (count 0)");
 
     // --- Test Case 5: Single file input (count 1) ---
