@@ -17,7 +17,15 @@ typedef struct cmpdata {
     size_t buffer_size;
 } cmpdata;
 
-void cmp_init(cmpdata *cd, int size, size_t max_buffer);
+/**
+ * Initialize cmpdata structure.
+ * @param cd cmpdata structure to initialize.
+ * @param size number of files to manage.
+ * @param max_buffer maximal total buffer size for all files.
+ * @return 0 on success, non-zero (e.g., ENOMEM or EINVAL) on failure.
+ *         On failure, the state of cd is undefined and should not be used, except for passing to cmp_free if some allocations succeeded.
+ */
+int cmp_init(cmpdata *cd, int size, size_t max_buffer);
 
 int cmp_uf_ordered_same(cmpdata *cd, int sidx1, int sidx2);
 

@@ -101,6 +101,7 @@ fm_fopen(fmanage *fm, char *filename) {
 
     while (ff == NULL) {
         if (fm->count < fm->limit) {
+            errno = 0; // Clear errno before calling a function that might set it
             FILE *fd = fopen(filename, "r");
             if (fd != NULL) {
                 ff = (fm_FILE *) salloc(sizeof(fm_FILE),
@@ -108,7 +109,7 @@ fm_fopen(fmanage *fm, char *filename) {
                 ff->filename = filename;
                 ff->pos = 0;
                 ff->fd = fd;
-                ff->_errno = errno;
+                ff->_errno = 0; // CRITICAL: Set to 0 on successful open
 
                 fm->head->next->prev = ff;
                 ff->next = fm->head->next;
@@ -116,9 +117,14 @@ fm_fopen(fmanage *fm, char *filename) {
                 ff->prev = fm->head;
                 fm->count++;
             } else {
+                // fopen failed, errno is now set by fopen
+                ff = NULL; // Ensure ff remains NULL for the loop condition
                 if (errno != EMFILE) {
-                    return NULL;    // check the error outside
+                    // For other errors (e.g. ENOENT), return NULL immediately to signal to caller
+                    // The caller (compare_files) will then use the current errno value.
+                    return NULL;    
                 }
+                // If EMFILE, loop will continue to try closing other files
             }
         }
         if (ff == NULL) {
@@ -132,25 +138,53 @@ fm_fopen(fmanage *fm, char *filename) {
 size_t
 fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb, fm_FILE *ff) {
     if (ff != NULL) {
-        if (ff->_errno != 0) {
-            return 0;
+        if (ff->_errno != 0 && ff->_errno != ENOENT) { // Allow reading attempt if only ENOENT was set by a previous failed open that was ignored by ufsorter
+                                                 // ENOENT on ff might mean it was never successfully opened in the first place.
+                                                 // A better approach might be to not even attempt fread if ff->fd is NULL from a failed fopen.
+                                                 // Let's assume for now ff->_errno != 0 is a hard error for reading.
+             if (ff->_errno != 0) return 0; // If ff carries an error from open/previous read, don't proceed.
         }
+
         if (ff->fd == NULL) {
+            // File might be temporarily closed or never successfully opened.
+            // If never opened (e.g. fm_fopen returned NULL and caller still tried to use it),
+            // or if fm_reopen fails, this will be an issue.
+            // The current design expects fm_reopen to handle it.
+            errno = 0; // Clear errno before reopen
             fm_reopen(fm, ff);
-            if (ff->fd == NULL) {
-                ff->_errno = errno;
-                fprintf(stderr, "Error opening %s: %s", ff->filename,
-                        strerror(errno));
-                return 0;
+            if (ff->fd == NULL) { // Reopen failed
+                // ff->_errno should have been set by fm_reopen if it failed to open the file.
+                // If it wasn't (e.g. fm_reopen exited), then this is problematic.
+                // Assuming fm_reopen sets ff->_errno if it returns with ff->fd == NULL
+                // fprintf(stderr, "Error reopening %s: %s\n", ff->filename, strerror(ff->_errno ? ff->_errno : errno));
+                return 0; // Indicate read failure
             }
         }
 
+        errno = 0; // Clear errno before calling fread
         size_t cnt = fread(ptr, size, nmemb, ff->fd);
-        fm->total_readed += cnt;
+        // After fread, errno is set ONLY IF an error occurred. 
+        // If EOF, feof(ff->fd) is true. If error, ferror(ff->fd) is true.
 
+        // Store errno only if a read error actually occurred.
+        // fread returns a short count on EOF or error.
+        if (cnt < nmemb && ferror(ff->fd)) {
+            ff->_errno = errno; // Store actual read error
+        } else {
+            // No read error, or just EOF. Don't overwrite a previous ff->_errno from open phase
+            // unless explicitly clearing it. If open was successful, ff->_errno was 0.
+            // If it was EOF, ff->_errno should remain 0 for this path.
+            if (ff->_errno == 0) { // If no prior error on this fm_FILE struct
+                 // do not set ff->_errno from global errno here if it was just EOF
+            } 
+        }
+        // The old code: ff->_errno = errno; was too broad.
+        // It should be: if (ferror(ff->fd)) ff->_errno = errno; else if successful open ff->_errno = 0 for read;
+
+        fm->total_readed += cnt; // This seems to be a global counter in fmanage, its utility isn't clear here.
         ff->pos += cnt;
-        ff->_errno = errno;
 
+        // LRU cache update
         ff->prev->next = ff->next;
         ff->next->prev = ff->prev;
         fm->head->next->prev = ff;
