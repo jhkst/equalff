@@ -66,19 +66,22 @@ libclean:
 	-rm -f lib/*.o
 	-rm -f $(LIB_TARGET)
 
-install: $(TARGET)
+install: $(TARGET) $(LIB_TARGET)
 	mkdir -p $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(MANDIR)
+	mkdir -p $(DESTDIR)$(PREFIX)/lib
+	mkdir -p $(DESTDIR)$(PREFIX)/include/$(TARGET)
 	cp $(TARGET) $(DESTDIR)$(BINDIR)
 	chmod 755 $(DESTDIR)$(BINDIR)/$(TARGET)
-# If you want to install the dynamic library, you'd add steps here, e.g.:
-# cp $(LIB_TARGET) $(DESTDIR)$(PREFIX)/lib
-# chmod 644 $(DESTDIR)$(PREFIX)/lib/$(LIB_NAME)
+	cp $(LIB_TARGET) $(DESTDIR)$(PREFIX)/lib
+	chmod 644 $(DESTDIR)$(PREFIX)/lib/$(LIB_NAME)
+	cp $(LIB_HEADERS) $(DESTDIR)$(PREFIX)/include/$(TARGET)/
+	@find $(DESTDIR)$(PREFIX)/include/$(TARGET)/ -type f -exec chmod 644 {} \;
 	cp equalff.man $(DESTDIR)$(MANDIR)/$(TARGET).1
 	chmod 644 $(DESTDIR)$(MANDIR)/$(TARGET).1
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/$(TARGET)
 	rm -f $(DESTDIR)$(MANDIR)/$(TARGET).1
-# If library installed:
-# rm -f $(DESTDIR)$(PREFIX)/lib/$(LIB_NAME)
+	rm -f $(DESTDIR)$(PREFIX)/lib/$(LIB_NAME)
+	rm -rf $(DESTDIR)$(PREFIX)/include/$(TARGET)

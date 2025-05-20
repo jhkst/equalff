@@ -1,0 +1,95 @@
+name: Build Arch Linux Package
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  build-arch:
+    # Using a community action to get an Arch Linux environment
+    runs-on: ubuntu-latest # Base runner, action will provide Arch env
+    container: # Optional: Or use a Docker container with Arch Linux
+      image: archlinux:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Arch Linux environment (if not using container)
+        # This step is an alternative if you don't use a container directly.
+        # For this example, using container: archlinux:latest is simpler.
+        # uses: ffurrer2/setup-arch-cn@v3
+        # with:
+        #   update: true
+        if: ${{ !job.container }}
+        run: echo "Skipping Arch setup as container is used or this step should be enabled if container is not used."
+
+      - name: Install build dependencies (in Arch container)
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git
+
+      - name: Determine Package Version from PKGBUILD
+        id: package_info
+        run: |
+          # Extract pkgver from PKGBUILD
+          PKGVER=$(grep -oP '(?<=^pkgver=)[^[:space:]]+' PKGBUILD | tr -d "'()")
+          echo "pkgver=$PKGVER" >> $GITHUB_OUTPUT
+          # Extract pkgrel from PKGBUILD
+          PKGREL=$(grep -oP '(?<=^pkgrel=)[^[:space:]]+' PKGBUILD | tr -d "'()")
+          echo "pkgrel=$PKGREL" >> $GITHUB_OUTPUT
+          # Extract pkgname array and get the first element (base name for tarball)
+          # This assumes the first name in pkgname array is the main one for source tarball
+          _PKG BASENAME=$(grep -oP '(?<=^_pkgbasename=)[^[:space:]]+' PKGBUILD | tr -d "'()")
+          echo "pkgbasename=${_PKG BASENAME:-$(grep -oP '(?<=^pkgname=\(\')[^\']+' PKGBUILD)}" >> $GITHUB_OUTPUT
+
+      - name: Update PKGBUILD version for tagged releases
+        # For tagged releases, update pkgver and pkgrel in PKGBUILD
+        if: github.ref_type == 'tag'
+        run: |
+          TAG_VERSION=${{ github.ref_name }}
+          TAG_VERSION=${TAG_VERSION#v} # Remove 'v' prefix
+          sed -i "s/^pkgver=.*/pkgver=${TAG_VERSION}/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD # Reset pkgrel to 1 for new version
+          # You might also want to update sha256sums if the tarball changes for this tag
+          # For now, assuming the source tarball defined in PKGBUILD matches the tag
+          echo "Updated PKGBUILD for tag ${TAG_VERSION}"
+
+      - name: Download source and update checksums (if not SKIP)
+        # makepkg usually handles downloading. This step is if you need to pre-fetch or if sha256sums is not SKIP
+        # Your PKGBUILD has sha256sums=('SKIP'), so makepkg will attempt to download and then you'd update it manually.
+        # For CI, if you commit a tarball or have a fixed URL, you can pre-calculate sums.
+        run: |
+          if ! grep -q "sha256sums=('SKIP')" PKGBUILD; then
+            echo "Attempting to download sources for checksum generation..."
+            # This command will download sources defined in PKGBUILD to $srcdir (usually current dir)
+            # It will fail if checksums are wrong and not SKIP.
+            makepkg --nobuild --nodeps --noarchive --noconfirm || echo "Checksums might need update or source URL issue."
+            # updpkgsums # This updates checksums in PKGBUILD if sources are present
+          else
+            echo "sha256sums is SKIP. 'makepkg' will handle download."
+          fi
+
+      - name: Build Arch package
+        # Run as a non-root user. If running in a root container, create a user.
+        # GitHub Actions steps run as root in the archlinux:latest container.
+        # Create a builder user to run makepkg
+        run: |
+          useradd -m builder
+          # Give builder permissions to write to the current directory (GHA workspace)
+          chown -R builder:builder ./
+          # Run makepkg as the builder user
+          sudo -u builder makepkg -sf --noconfirm --needed
+
+      - name: List generated packages
+        run: ls -l *.pkg.tar.zst || true
+
+      - name: Upload Arch packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-packages-${{ github.run_id }}
+          path: "*.pkg.tar.zst"
+          if-no-files-found: error 

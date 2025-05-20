@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+%: 
+	dh $@
+
+#override_dh_auto_configure:
+#	# No configure step needed for this project
+
+override_dh_auto_build:
+	$(MAKE) # Calls the default target in the main Makefile
+
+override_dh_auto_test:
+	# Add tests here if you have them, e.g.:
+	# $(MAKE) -f Makefile.test run
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp PREFIX=/usr
+
+# If your library has a SONAME (e.g., libequalff.so.0), dh_makeshlibs will typically handle it.
+# You might need to create a debian/libequalff0.symbols file if auto-detection is not sufficient. 

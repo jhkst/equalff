@@ -1,0 +1,29 @@
+Source: equalff
+Maintainer: jhkst <jhkst@centrum.cz>
+Section: utils
+Priority: optional
+Build-Depends: debhelper-compat (=13), gcc, make
+Standards-Version: 4.6.2
+Homepage: https://github.com/jhkst/equalff
+
+Package: equalff
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libequalff0 (>= ${binary:Version})
+Description: High-speed duplicate file finder
+ Equalff is a high-speed duplicate file finder. It employs a unique
+ algorithm, making it faster than other duplicate file finders for a
+ single run.
+
+Package: libequalff0
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Core library for equalff duplicate file finder
+ This package contains the shared library providing the core duplicate
+ detection logic for the equalff utility.
+
+Package: libequalff-dev
+Architecture: any
+Depends: libequalff0 (= ${binary:Version}), ${misc:Depends}
+Description: Development files for libequalff
+ This package contains the headers and development files needed to build
+ software against libequalff. 

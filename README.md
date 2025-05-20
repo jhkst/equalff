@@ -42,6 +42,15 @@ make uninstall
 
 (If you used a custom `PREFIX` during installation, you need to specify it for uninstallation as well.)
 
+## Dependencies
+
+### Build Dependencies
+*   A C99 compatible C compiler (e.g., GCC, Clang).
+*   GNU `make` (or any compatible `make` utility).
+
+### Runtime Dependencies
+*   Standard C libraries (these are typically provided by the operating system and do not require separate installation).
+
 ## Usage
 ```
 Usage: ./equalff [OPTIONS] <DIRECTORY> [DIRECTORY]...

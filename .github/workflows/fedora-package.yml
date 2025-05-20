@@ -1,0 +1,91 @@
+name: Build Fedora (RPM) Package
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  build-rpm:
+    runs-on: fedora-latest # Use a Fedora runner
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install RPM build dependencies
+        run: |
+          sudo dnf install -y rpm-build make gcc rpmdevtools git
+          rpmdev-setuptree # Creates ~/rpmbuild directory structure
+
+      - name: Determine Package Version
+        id: package_version
+        # Try to get version from tag, fallback to version in spec file
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION=${{ github.ref_name }}
+            VERSION=${VERSION#v} # Remove 'v' prefix if present
+            echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
+          else
+            # Extract version from spec file as fallback or for non-tag builds
+            VERSION=$(grep -oP '(?<=^Version:\s{0,50})[0-9a-zA-Z._-]+' equalff.spec)
+            echo "version_spec=$VERSION" >> $GITHUB_OUTPUT
+          fi
+          # Define package name based on spec file
+          PKG_NAME=$(grep -oP '(?<=^Name:\s{0,50})[0-9a-zA-Z._-]+' equalff.spec)
+          echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create source tarball
+        # RPM builds often expect a tarball. This step creates one from the current checkout.
+        # The name should match what's in your .spec file's Source0 field (without the URL part).
+        # Your spec uses equalff-%{version}.tar.gz
+        run: |
+          PKG_NAME="${{ steps.package_version.outputs.pkg_name }}"
+          VERSION="${{ steps.package_version.outputs.version_tag || steps.package_version.outputs.version_spec }}"
+          TARBALL_NAME="${PKG_NAME}-${VERSION}.tar.gz"
+          # Create a tarball from the current directory content
+          # Exclude .git and potentially .github if they are large and not needed in source tarball
+          # The --transform makes it extract to PKG_NAME-VERSION/ directory
+          git archive --format=tar.gz --prefix="${PKG_NAME}-${VERSION}/" -o "${TARBALL_NAME}" HEAD
+          mv "${TARBALL_NAME}" ~/rpmbuild/SOURCES/
+          ls -l ~/rpmbuild/SOURCES/
+
+      - name: Copy spec file
+        run: cp equalff.spec ~/rpmbuild/SPECS/
+
+      - name: Update spec file version (for tagged releases)
+        # If it's a tagged release, update the Version field in the spec file.
+        # For PRs or main branch builds, it will use the version already in the spec file.
+        if: steps.package_version.outputs.version_tag
+        run: |
+          VERSION_TAG="${{ steps.package_version.outputs.version_tag }}"
+          sed -i "s/^Version:.*/Version:    ${VERSION_TAG}/" ~/rpmbuild/SPECS/equalff.spec
+          # Reset Release to 1 for a new version
+          sed -i "s/^Release:.*/Release:    1%{?dist}/" ~/rpmbuild/SPECS/equalff.spec
+          # Add a changelog entry
+          # Ensure there's a %changelog section. This adds a new entry at the top.
+          # Note: date format for rpm changelog is different from dch.
+          CHANGELOG_ENTRY="* $(date +'%a %b %d %Y') jhkst <jhkst@centrum.cz> - ${VERSION_TAG}-1\n- Release ${VERSION_TAG}"
+          # Insert after %changelog line. This is a bit fragile; a more robust sed script might be needed.
+          sed -i "/^%changelog/a ${CHANGELOG_ENTRY}" ~/rpmbuild/SPECS/equalff.spec
+
+      - name: Build RPMs
+        run: |
+          rpmbuild -bb ~/rpmbuild/SPECS/equalff.spec
+
+      - name: List generated RPMs
+        run: |
+          ls -l ~/rpmbuild/RPMS/*/*.rpm || true
+          ls -l ~/rpmbuild/SRPMS/*.rpm || true
+
+      - name: Upload RPM packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-packages-${{ github.run_id }}
+          path: |
+            ~/rpmbuild/RPMS/*/*.rpm
+            ~/rpmbuild/SRPMS/*.rpm
+          if-no-files-found: error 
