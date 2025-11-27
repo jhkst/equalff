@@ -388,7 +388,7 @@ int compare_files_async(
                     effective_read_for_batch = min_positive_read_in_batch;
                     overall_data_read_in_pass += effective_read_for_batch;
                 }
-
+                cmp_uf_reset_ordered(&current_cmp_data, group_start_idx_in_order_array, group_size);
                 current_cmp_data.readed = effective_read_for_batch;
 
                 if (group_size > 1) {
