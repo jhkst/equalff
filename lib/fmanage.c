@@ -122,7 +122,7 @@ fm_fopen(fmanage *fm, char *filename) {
                 if (errno != EMFILE) {
                     // For other errors (e.g. ENOENT), return NULL immediately to signal to caller
                     // The caller (compare_files) will then use the current errno value.
-                    return NULL;    
+                    return NULL;
                 }
                 // If EMFILE, loop will continue to try closing other files
             }
@@ -163,7 +163,7 @@ fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb, fm_FILE *ff) {
 
         errno = 0; // Clear errno before calling fread
         size_t cnt = fread(ptr, size, nmemb, ff->fd);
-        // After fread, errno is set ONLY IF an error occurred. 
+        // After fread, errno is set ONLY IF an error occurred.
         // If EOF, feof(ff->fd) is true. If error, ferror(ff->fd) is true.
 
         // Store errno only if a read error actually occurred.
@@ -176,7 +176,7 @@ fm_fread(fmanage *fm, void *ptr, size_t size, size_t nmemb, fm_FILE *ff) {
             // If it was EOF, ff->_errno should remain 0 for this path.
             if (ff->_errno == 0) { // If no prior error on this fm_FILE struct
                  // do not set ff->_errno from global errno here if it was just EOF
-            } 
+            }
         }
         // The old code: ff->_errno = errno; was too broad.
         // It should be: if (ferror(ff->fd)) ff->_errno = errno; else if successful open ff->_errno = 0 for read;
