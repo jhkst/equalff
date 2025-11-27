@@ -4,7 +4,7 @@
 #include <errno.h> // For checking errno values like ENOMEM, EINVAL
 
 // Assuming fcompare.h is accessible via -I./lib
-#include "fcompare.h" 
+#include "fcompare.h"
 
 // Structure to hold results from async callback for verification
 typedef struct {
@@ -42,6 +42,21 @@ void create_dummy_file(const char *filename, const char *content) {
         perror("Failed to create dummy file");
     }
 }
+
+void create_dummy_file_with_size(const char *filename, const char *content, int size) {
+    FILE *fp = fopen(filename, "w");
+    if (fp) {
+        fputs(content, fp);
+        size_t ret =fwrite(content, size, 1,fp);
+        if (ret < 1) {
+            perror("Error create dummy file");
+        }
+        fclose(fp);
+    } else {
+        perror("Failed to create dummy file");
+    }
+}
+
 
 void print_result(ComparisonResult *result, const char* test_name) {
     printf("--- Test: %s ---\n", test_name);
@@ -121,11 +136,11 @@ int main() {
     create_dummy_file("test7_fileA.txt", "Small buffer test");
     create_dummy_file("test7_fileB.txt", "Small buffer test");
     char *test7_files[] = {"test7_fileA.txt", "test7_fileB.txt"};
-    result = compare_files(test7_files, 2, 200, 10); 
+    result = compare_files(test7_files, 2, 200, 10);
     print_result(result, "Buffer too small (expect EINVAL from cmp_init)");
     remove("test7_fileA.txt");
     remove("test7_fileB.txt");
-    
+
     // --- Test Case 8: Corrected - Only same-sized (empty) files passed to compare_files
     create_dummy_file("test8_fileA.txt", "");
     create_dummy_file("test8_fileB.txt", "");
@@ -140,7 +155,7 @@ int main() {
     // If the non-empty is shorter than buffer, and empty is first, readed=0, they'd be unioned by current ufsorter.
     // This highlights that compare_files *expects files of same size*.
     // For the harness, let's ensure they are treated as different if passed together.
-    create_dummy_file("test9_fileA.txt", ""); 
+    create_dummy_file("test9_fileA.txt", "");
     create_dummy_file("test9_fileB.txt", "not empty");
     char *test9_files[] = {"test9_fileA.txt", "test9_fileB.txt"};
     result = compare_files(test9_files, 2, 1024*1024, 10);
@@ -154,7 +169,7 @@ int main() {
     create_dummy_file("test10_fileB.txt", "Async Different Content");
     create_dummy_file("test10_fileC.txt", "Async Hello World");
     char *test10_files[] = {"test10_fileA.txt", "test10_fileB.txt", "test10_fileC.txt"};
-    
+
     AsyncTestContext async_ctx_10 = {0, 0};
     char *error_msg_10 = NULL;
     int ret_10 = compare_files_async(test10_files, 3, 1024 * 1024, 10, async_test_callback, &async_ctx_10, &error_msg_10);
@@ -181,7 +196,7 @@ int main() {
     create_dummy_file("test11_fileA.txt", "Async Alpha");
     create_dummy_file("test11_fileB.txt", "Async Beta");
     char *test11_files[] = {"test11_fileA.txt", "test11_fileB.txt"};
-    
+
     AsyncTestContext async_ctx_11 = {0, 0};
     char *error_msg_11 = NULL;
     int ret_11 = compare_files_async(test11_files, 2, 1024 * 1024, 10, async_test_callback, &async_ctx_11, &error_msg_11);
@@ -221,6 +236,112 @@ int main() {
         printf("ERROR: compare_files_async completed successfully but was expected to fail. Sets found: %d\n", async_ctx_12.sets_found);
         printf("Verification: FAILED (Error was expected)\n");
     }
+    printf("--------------------\n\n");
+
+    char * payload = malloc(8193);
+    memset(payload, 0, 8193);
+    create_dummy_file_with_size("test1_fileA.txt", payload, 8193);
+    create_dummy_file_with_size("test1_fileB.txt", payload, 8193);
+    create_dummy_file_with_size("test1_fileC.txt", payload, 8193);
+    char *test13_files[] = {"test1_fileA.txt", "test1_fileB.txt", "test1_fileC.txt"};
+    result = compare_files(test13_files, 3, 1024 * 1024, 10);
+    printf("--- Test: %s ---\n", "Three identical");
+    remove("test1_fileA.txt");
+    remove("test1_fileB.txt");
+    remove("test1_fileC.txt");
+    free(payload);
+    if (!result) {
+        printf("ERROR : NULL returned\n");
+    } else {
+        // Basic verification
+        if (result->count == 1 && result->sets->count == 3) {
+            printf("Verification: PASSED (1 set of 2 files found)\n");
+        } else {
+            printf("Verification: FAILED (Expected 1 set of 3 files, got %d sets, %d total files)\n",  result->count, result->sets->count);
+        }
+        printf("Found %d duplicate set(s).\n", result->count);
+        for (int i = 0; i < result->count; i++) {
+            printf("  Set %d:\n", i + 1);
+            for (int j = 0; j < result->sets[i].count; j++) {
+                printf("    - %s\n", result->sets[i].paths[j]);
+            }
+        }
+
+    }
+    free_comparison_result(result);
+    result = NULL;
+    printf("--------------------\n\n");
+
+    int psize = 1024;
+    payload = malloc(psize);
+    memset(payload, 'a', psize);
+    create_dummy_file_with_size("test1_fileA.txt", payload, psize);
+    create_dummy_file_with_size("test1_fileB.txt", payload, psize);
+    payload[psize-1] = 'b';
+    create_dummy_file_with_size("test1_fileC.txt", payload, psize);
+    char *test14_files[] = {"test1_fileA.txt", "test1_fileB.txt", "test1_fileC.txt"};
+    result = compare_files(test14_files, 3, 1024, 10);
+    printf("--- Test: %s ---\n", "Two identical(1k), One different");
+    remove("test1_fileA.txt");
+    remove("test1_fileB.txt");
+    remove("test1_fileC.txt");
+    free(payload);
+    if (!result) {
+        printf("ERROR : NULL returned\n");
+    } else {
+        // Basic verification
+        if (result->count == 1 && result->sets->count == 2) {
+            printf("Verification: PASSED (1 set of 2 files found)\n");
+        } else {
+            printf("Verification: FAILED (Expected 1 set of 2 files, got %d sets, %d total files)\n",  result->count, result->sets->count);
+        }
+        printf("Found %d duplicate set(s).\n", result->count);
+        for (int i = 0; i < result->count; i++) {
+            printf("  Set %d:\n", i + 1);
+            for (int j = 0; j < result->sets[i].count; j++) {
+                printf("    - %s\n", result->sets[i].paths[j]);
+            }
+        }
+
+    }
+    free_comparison_result(result);
+    result = NULL;
+    printf("--------------------\n\n");
+
+    psize = 1025;
+    payload = malloc(psize);
+    memset(payload, 'a', psize);
+    create_dummy_file_with_size("test1_fileA.txt", payload, psize);
+    create_dummy_file_with_size("test1_fileB.txt", payload, psize);
+    payload[psize-1] = 'b';
+    create_dummy_file_with_size("test1_fileC.txt", payload, psize);
+    char *test15_files[] = {"test1_fileA.txt", "test1_fileB.txt", "test1_fileC.txt"};
+    result = compare_files(test15_files, 3, 1024, 10);
+    printf("--- Test: %s ---\n", "Two identical(4k), One different");
+    remove("test1_fileA.txt");
+    remove("test1_fileB.txt");
+    remove("test1_fileC.txt");
+    free(payload);
+    if (!result) {
+        printf("ERROR : NULL returned\n");
+    } else {
+        // Basic verification
+        if (result->count == 1 && result->sets->count == 2) {
+            printf("Verification: PASSED (1 set of 2 files found)\n");
+        } else {
+            printf("Verification: FAILED (Expected 1 set of 2 files, got %d sets, %d total files)\n",  result->count, result->sets->count);
+        }
+        printf("Found %d duplicate set(s).\n", result->count);
+        for (int i = 0; i < result->count; i++) {
+            printf("  Set %d:\n", i + 1);
+            for (int j = 0; j < result->sets[i].count; j++) {
+                printf("    - %s\n", result->sets[i].paths[j]);
+            }
+        }
+
+    }
+    free_comparison_result(result);
+    result = NULL;
     printf("--------------------\n\n");
 
     printf("All tests finished.\n");
