@@ -68,7 +68,7 @@ create_array_from_list(item *list_sentinel_head, size_t num_files) {
         if (i >= num_files) {
             fprintf(stderr, "Error: More items in list than files_count in create_array_from_list\n");
             // This indicates a discrepancy, possibly exit or handle error
-            exit(EXIT_FAILURE); 
+            exit(EXIT_FAILURE);
         }
         fis[i++] = current_node->fi;
         current_node = current_node->next;
@@ -160,7 +160,7 @@ static void cli_output_callback(const DuplicateSet *duplicates, void *user_data)
     CliAsyncCallbackLocalContext *local_ctx = (CliAsyncCallbackLocalContext *)user_data;
 
     // The original output format has a blank line before each new set of duplicates.
-    fprintf(stdout, "\n"); 
+    fprintf(stdout, "\n");
 
     for (int i = 0; i < duplicates->count; i++) {
         fprintf(stdout, "%s\n", duplicates->paths[i]);
@@ -173,10 +173,10 @@ static void cli_output_callback(const DuplicateSet *duplicates, void *user_data)
 
 int
 process_same_size_async(file_item *files[], int count, int max_buffer, int max_open_files) {
-    char **name = (char **) salloc(sizeof(char *) * count, NULL); 
+    char **name = (char **) salloc(sizeof(char *) * count, NULL);
     if (!name) {
         fprintf(stderr, "Error: Failed to allocate memory for file names in process_same_size_async.\n");
-        return 0; 
+        return 0;
     }
     for (int i = 0; i < count; i++) {
         name[i] = files[i]->filepath;
@@ -185,13 +185,13 @@ process_same_size_async(file_item *files[], int count, int max_buffer, int max_o
     CliAsyncCallbackLocalContext local_cb_ctx = {0};
     char *error_msg = NULL;
 
-    int ret_code = compare_files_async(name, count, max_buffer, max_open_files, 
+    int ret_code = compare_files_async(name, count, max_buffer, max_open_files,
                                        cli_output_callback, &local_cb_ctx, &error_msg);
-    free(name); 
+    free(name);
 
     if (ret_code != 0) {
         fprintf(stderr, "Error during file comparison: %s (Code: %d)\n",
-                error_msg ? error_msg : strerror(ret_code), 
+                error_msg ? error_msg : strerror(ret_code),
                 ret_code);
         if (error_msg) {
             free_error_message(error_msg);
@@ -263,18 +263,18 @@ process_files_array(file_item **fis, size_t num_files_in_array, int max_buffer, 
 
     cli_global_first_output_emitted = 0; // Reset for this processing run
     int stat_cluster_count = 0;
-    
+
     size_t current_idx = 0;
     while (current_idx < num_files_in_array) {
         size_t group_start_idx = current_idx;
         long long current_group_file_size = fis[group_start_idx]->st_size;
 
         // Advance current_idx to find the end of the current group of same-sized files
-        current_idx++; 
+        current_idx++;
         while (current_idx < num_files_in_array && fis[current_idx]->st_size == current_group_file_size) {
             current_idx++;
         }
-        
+
         int count_in_this_group = current_idx - group_start_idx;
 
         if (count_in_this_group > 1) {
@@ -284,7 +284,7 @@ process_files_array(file_item **fis, size_t num_files_in_array, int max_buffer, 
                 print_files(&fis[group_start_idx], count_in_this_group);
                 stat_cluster_count++;
                 if(count_in_this_group > 0) cli_global_first_output_emitted = 1; // Mark output occurred
-            } 
+            }
             // For non-zero sized files that meet min_file_size criteria
             else if (current_group_file_size > 0 && current_group_file_size >= min_file_size) {
                 stat_cluster_count += process_same_size_async(&fis[group_start_idx], count_in_this_group, max_buffer, max_open_files);
@@ -317,7 +317,7 @@ process_folders(int folders_cnt,
                 int opt_same_fs,
                 int opt_follow_symlinks,
                 int opt_buffer_size, int opt_max_open_files, int opt_min_file_size) {
-    
+
     // Initialize the global file collection context
     g_file_collection.list_head = (item *) salloc(sizeof(item), handle_exit);
     g_file_collection.list_head->fi = NULL;    // Sentinel node has no file_item
@@ -347,7 +347,7 @@ process_folders(int folders_cnt,
         fprintf(stderr, "%zu files found\nSorting ... ", g_file_collection.files_count);
 
         file_item **fis = create_array_from_list(g_file_collection.list_head, g_file_collection.files_count);
-        
+
         process_files_array(fis, g_file_collection.files_count, opt_buffer_size, opt_max_open_files, opt_min_file_size);
 
         // Cleanup sequence:
@@ -357,7 +357,7 @@ process_folders(int folders_cnt,
         free(fis);
         // 3. Free the linked list nodes (item structs)
         free_file_list_nodes(g_file_collection.list_head);
-        
+
         // Reset global context pointers for safety, though not strictly necessary if program exits soon
         g_file_collection.list_head = NULL;
         g_file_collection.list_tail = NULL;

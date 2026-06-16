@@ -54,14 +54,14 @@ cmp_init(cmpdata *cd, int size, size_t max_buffer) {
         return EINVAL; // Invalid argument for buffer size
     }
 
-    cd->buffer_size = (max_buffer == 0 || ( (size_t)size > 0 && max_buffer / (size_t)size > BUFFER_SIZE) ) 
-                      ? BUFFER_SIZE 
+    cd->buffer_size = (max_buffer == 0 || ( (size_t)size > 0 && max_buffer / (size_t)size > BUFFER_SIZE) )
+                      ? BUFFER_SIZE
                       : max_buffer / (size_t)size;
     if (cd->buffer_size < MIN_BUFFER_PER_FILE) {
         cd->buffer_size = MIN_BUFFER_PER_FILE;
     }
     if (size > 0 && cd->buffer_size == 0) { // Avoid zero buffer size if size > 0
-        cd->buffer_size = MIN_BUFFER_PER_FILE; 
+        cd->buffer_size = MIN_BUFFER_PER_FILE;
     }
 
 
