@@ -46,8 +46,7 @@ void create_dummy_file(const char *filename, const char *content) {
 void create_dummy_file_with_size(const char *filename, const char *content, int size) {
     FILE *fp = fopen(filename, "w");
     if (fp) {
-        fputs(content, fp);
-        size_t ret =fwrite(content, size, 1,fp);
+        size_t ret = fwrite(content, size, 1,fp);
         if (ret < 1) {
             perror("Error create dummy file");
         }
@@ -317,7 +316,7 @@ int main() {
     create_dummy_file_with_size("test1_fileC.txt", payload, psize);
     char *test15_files[] = {"test1_fileA.txt", "test1_fileB.txt", "test1_fileC.txt"};
     result = compare_files(test15_files, 3, 1024, 10);
-    printf("--- Test: %s ---\n", "Two identical(4k), One different");
+    printf("--- Test: %s ---\n", "Two identical(1k+1), One different");
     remove("test1_fileA.txt");
     remove("test1_fileB.txt");
     remove("test1_fileC.txt");
